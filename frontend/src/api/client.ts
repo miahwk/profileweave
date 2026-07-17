@@ -4,6 +4,7 @@ import type {
   Profile,
   ProfileDraft,
   Session,
+  TrashItem,
 } from '@/domain/profile'
 
 export interface ApiErrorDetail {
@@ -89,6 +90,15 @@ export function createApi(fetcher: Fetcher = fetch) {
     },
     deleteProfile(id: string): Promise<void> {
       return mutate(`${base}/profiles/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    },
+    async listTrash(): Promise<TrashItem[]> {
+      return arrayFrom(await request<TrashItem[] | { items: TrashItem[] }>(fetcher, `${base}/trash`))
+    },
+    restoreTrash(id: string): Promise<Profile> {
+      return mutate(`${base}/trash/${encodeURIComponent(id)}/restore`, { method: 'POST' })
+    },
+    purgeTrash(id: string): Promise<void> {
+      return mutate(`${base}/trash/${encodeURIComponent(id)}`, { method: 'DELETE' })
     },
     duplicateProfile(id: string): Promise<Profile> {
       return mutate(`${base}/profiles/${encodeURIComponent(id)}/duplicate`, { method: 'POST' })

@@ -46,6 +46,9 @@ func newAPI(profiles *profileapp.Service, browsers *browserapp.Service, token st
 	mux.HandleFunc("POST /api/v1/profiles/{id}/launch", api.launchProfile)
 	mux.HandleFunc("POST /api/v1/profiles/{id}/stop", api.stopProfile)
 	mux.HandleFunc("GET /api/v1/sessions", api.listSessions)
+	mux.HandleFunc("GET /api/v1/trash", api.listTrash)
+	mux.HandleFunc("POST /api/v1/trash/{id}/restore", api.restoreTrash)
+	mux.HandleFunc("DELETE /api/v1/trash/{id}", api.purgeTrash)
 	api.handler = securityHeaders(recoverMiddleware(originGuard(requireControlToken(mux, token))))
 	return api
 }
@@ -185,7 +188,9 @@ type capabilityResponse struct {
 func featureCapabilities() []featureCapability {
 	return []featureCapability{
 		{"profileIsolation", "Separate user data directory", "applied", "Cookies, cache, and site storage are isolated per profile."},
-		{"locale", "Locale and languages", "partial", "Chromium --lang is applied; final behavior depends on the browser."},
+		{"os", "Operating system target", "unsupported", "Saved for consistency diagnostics; the native host OS is retained."},
+		{"locale", "Locale", "partial", "Chromium --lang is applied; final behavior depends on the browser."},
+		{"languages", "Language preferences", "unsupported", "Saved for diagnostics but not written to browser preferences by the MVP runtime."},
 		{"proxy", "HTTP and SOCKS5 proxy", "partial", "Applies to Chromium traffic and is not a system VPN."},
 		{"webrtc", "WebRTC proxy policy", "partial", "Reduces non-proxied UDP but cannot guarantee identical behavior in every version."},
 		{"display", "Window size and DPR", "partial", "Window managers can adjust the requested values."},

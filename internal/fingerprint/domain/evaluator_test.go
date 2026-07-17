@@ -49,3 +49,26 @@ func TestEvaluateWarnsWhenProxyUsesNativeWebRTC(t *testing.T) {
 	}
 	t.Fatal("expected WebRTC proxy warning")
 }
+
+func TestEvaluateReportsDiagnosticOnlyOSAndLanguages(t *testing.T) {
+	fp := Default()
+	fp.OS = "windows"
+	if hostOS() == "windows" {
+		fp.OS = "macos"
+	}
+	report := Evaluate(fp, Proxy{Mode: "direct"})
+	wanted := map[string]bool{"os_not_applied": false, "languages_unsupported": false}
+	for _, issue := range report.Issues {
+		if _, ok := wanted[issue.Code]; ok {
+			wanted[issue.Code] = true
+		}
+	}
+	for code, found := range wanted {
+		if !found {
+			t.Errorf("expected issue %s in %#v", code, report.Issues)
+		}
+	}
+	if report.HasErrors() {
+		t.Fatalf("diagnostic-only targets must not block launch: %#v", report.Issues)
+	}
+}

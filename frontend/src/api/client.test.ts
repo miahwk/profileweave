@@ -45,4 +45,24 @@ describe('profile API adapter', () => {
       code: 'profile_invalid', status: 422, message: '配置无效', details: [{ field: 'name', message: '名称不能为空' }],
     })
   })
+
+  it('supports listing, restoring, and permanently deleting recycle entries', async () => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ items: [{ profile: { id: 'p_one', name: 'QA' }, deletedAt: '2026-07-18T00:00:00Z', hasBrowserData: true }] }))
+      .mockResolvedValueOnce(response({ controlToken: 'test-token' }))
+      .mockResolvedValueOnce(response({ id: 'p_one', name: 'QA' }))
+      .mockResolvedValueOnce(response(undefined, 204))
+    const api = createApi(fetcher)
+
+    expect((await api.listTrash())[0]?.hasBrowserData).toBe(true)
+    expect((await api.restoreTrash('p_one')).name).toBe('QA')
+    await api.purgeTrash('p_one')
+
+    expect(fetcher.mock.calls[2]).toEqual([
+      '/api/v1/trash/p_one/restore',
+      expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'X-ProfileWeave-Token': 'test-token' }) }),
+    ])
+    expect(fetcher.mock.calls[3]?.[0]).toBe('/api/v1/trash/p_one')
+    expect(fetcher.mock.calls[3]?.[1]?.method).toBe('DELETE')
+  })
 })

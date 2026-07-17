@@ -14,13 +14,19 @@ import (
 const testProfileID = "p_0123456789abcdef0123456789abcdef"
 
 type repositoryStub struct {
-	item      domain.Profile
-	saveErr   error
-	deleteErr error
-	deleted   bool
+	item       domain.Profile
+	trash      *domain.TrashedProfile
+	saveErr    error
+	deleteErr  error
+	restoreErr error
+	purgeErr   error
+	deleted    bool
 }
 
 func (r *repositoryStub) List(context.Context) ([]domain.Profile, error) {
+	if r.item.ID == "" {
+		return []domain.Profile{}, nil
+	}
 	return []domain.Profile{r.item}, nil
 }
 
@@ -39,14 +45,54 @@ func (r *repositoryStub) Save(_ context.Context, profile domain.Profile, _ uint6
 	return nil
 }
 
-func (r *repositoryStub) Delete(_ context.Context, id string) error {
+func (r *repositoryStub) ListTrash(context.Context) ([]domain.TrashedProfile, error) {
+	if r.trash == nil {
+		return []domain.TrashedProfile{}, nil
+	}
+	return []domain.TrashedProfile{*r.trash}, nil
+}
+
+func (r *repositoryStub) GetTrash(_ context.Context, id string) (domain.TrashedProfile, error) {
+	if r.trash == nil || r.trash.Profile.ID != id {
+		return domain.TrashedProfile{}, domain.ErrTrashNotFound
+	}
+	return *r.trash, nil
+}
+
+func (r *repositoryStub) MoveToTrash(_ context.Context, id, token string, deletedAt time.Time) error {
 	if r.deleteErr != nil {
 		return r.deleteErr
 	}
 	if id != r.item.ID {
 		return domain.ErrNotFound
 	}
+	entry := domain.TrashedProfile{Profile: r.item, DeletedAt: deletedAt, DataRestoreToken: token}
+	r.trash = &entry
+	r.item = domain.Profile{}
 	r.deleted = true
+	return nil
+}
+
+func (r *repositoryStub) RestoreTrash(_ context.Context, id string) (domain.Profile, error) {
+	if r.restoreErr != nil {
+		return domain.Profile{}, r.restoreErr
+	}
+	if r.trash == nil || r.trash.Profile.ID != id {
+		return domain.Profile{}, domain.ErrTrashNotFound
+	}
+	r.item = r.trash.Profile
+	r.trash = nil
+	return r.item, nil
+}
+
+func (r *repositoryStub) PurgeTrash(_ context.Context, id string) error {
+	if r.purgeErr != nil {
+		return r.purgeErr
+	}
+	if r.trash == nil || r.trash.Profile.ID != id {
+		return domain.ErrTrashNotFound
+	}
+	r.trash = nil
 	return nil
 }
 
@@ -56,6 +102,8 @@ type dataStub struct {
 	trashCalls    int
 	restoreCalls  int
 	restoredToken string
+	rollbackCalls int
+	purgeCalls    int
 }
 
 func (d *dataStub) EnsureProfileData(string) (bool, error) { return d.created, nil }
@@ -68,10 +116,31 @@ func (d *dataStub) RestoreProfileData(_ string, token string) error {
 	d.restoredToken = token
 	return nil
 }
+func (d *dataStub) RollbackRestoredProfileData(_ string, token string) error {
+	d.rollbackCalls++
+	d.restoredToken = token
+	return nil
+}
+func (d *dataStub) PurgeProfileData(string, string) error {
+	d.purgeCalls++
+	return nil
+}
 
 type activityStub bool
 
 func (a activityStub) IsRunning(string) bool { return bool(a) }
+
+type blockingActivity struct {
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (a *blockingActivity) IsRunning(string) bool { return false }
+func (a *blockingActivity) LockProfile(string) func() {
+	close(a.entered)
+	<-a.release
+	return func() {}
+}
 
 func validInput() domain.Input {
 	return domain.Input{
@@ -142,6 +211,28 @@ func TestDeleteRejectsInvalidIDBeforeDataLifecycle(t *testing.T) {
 	}
 	if data.trashCalls != 0 {
 		t.Fatalf("trash called %d times", data.trashCalls)
+	}
+}
+
+func TestDeleteWaitsForSharedBrowserLifecycleLock(t *testing.T) {
+	repo := &repositoryStub{item: existingProfile(t)}
+	data := &dataStub{trashToken: "restore-me"}
+	activity := &blockingActivity{entered: make(chan struct{}), release: make(chan struct{})}
+	service := NewService(repo, activity, nil, data)
+	done := make(chan error, 1)
+	go func() { done <- service.Delete(context.Background(), testProfileID) }()
+
+	select {
+	case <-activity.entered:
+	case <-time.After(time.Second):
+		t.Fatal("delete did not acquire the browser lifecycle lock")
+	}
+	if data.trashCalls != 0 {
+		t.Fatal("delete changed browser data before acquiring the lifecycle lock")
+	}
+	close(activity.release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
 	}
 }
 

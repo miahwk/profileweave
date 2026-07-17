@@ -208,6 +208,49 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/Session' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /trash:
+    get:
+      operationId: listTrash
+      summary: List recoverable deleted profiles
+      responses:
+        '200':
+          description: Recycle bin entries, newest deletion first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/TrashItem' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /trash/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ProfileID'
+    delete:
+      operationId: purgeTrash
+      summary: Permanently remove a trashed profile and its browser data
+      security: [{ ControlToken: [] }]
+      responses:
+        '204': { description: Permanently deleted }
+        '404': { $ref: '#/components/responses/TrashNotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /trash/{id}/restore:
+    post:
+      operationId: restoreTrash
+      summary: Restore profile metadata and browser data from the recycle bin
+      security: [{ ControlToken: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ProfileID'
+      responses:
+        '200':
+          description: Restored profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '404': { $ref: '#/components/responses/TrashNotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
 components:
   securitySchemes:
     ControlToken:
@@ -230,6 +273,11 @@ components:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
     NotFound:
       description: Profile not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    TrashNotFound:
+      description: Trashed profile not found
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -313,6 +361,14 @@ components:
             revision: { type: integer, minimum: 1 }
             createdAt: { type: string, format: date-time }
             updatedAt: { type: string, format: date-time }
+    TrashItem:
+      type: object
+      additionalProperties: false
+      required: [profile, deletedAt, hasBrowserData]
+      properties:
+        profile: { $ref: '#/components/schemas/Profile' }
+        deletedAt: { type: string, format: date-time }
+        hasBrowserData: { type: boolean }
     Session:
       type: object
       required: [profileId, status]

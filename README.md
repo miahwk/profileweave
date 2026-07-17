@@ -6,7 +6,7 @@ ProfileWeave Browser 是一个使用 Vue 3 与 Go 构建的本地浏览器 Profi
 
 ## 已实现能力
 
-- Profile 创建、编辑、搜索、复制、删除和 revision 冲突保护。
+- Profile 创建、编辑、搜索、复制、可恢复删除、回收站恢复/永久删除和 revision 冲突保护。
 - Chrome、Edge、Brave、Chromium 自动发现及自定义浏览器路径。
 - 每个 Profile 独立 `user-data-dir`，隔离 cookies、localStorage、cache 和站点权限。
 - direct、HTTP、SOCKS5 无认证代理，以及限制非代理 WebRTC UDP 的隐私策略。
@@ -64,7 +64,8 @@ ProfileWeave/
 │   ├── p_<profile-id>/
 │   └── ...
 └── trash/
-    └── ...
+    └── browser-data/
+        └── <opaque-restore-token>/
 ```
 
 代理凭据不会持久化，因此当前版本只接受无认证 HTTP/SOCKS5 代理。
@@ -80,7 +81,7 @@ ProfileWeave/
 
 ## 已知限制
 
-- timezone、CPU 和内存当前用于保存与诊断，尚未注入浏览器。
+- OS target、languages、timezone、CPU 和内存当前用于保存与诊断，尚未注入浏览器。
 - `--lang`、窗口尺寸、DPR、代理和 WebRTC flags 的最终行为取决于浏览器版本与操作系统。
 - 自定义 UA 不能同步全部 User-Agent Client Hints 或 TLS 特征，系统会显示警告。
 - 代理不是 VPN，不保证覆盖全部 DNS、扩展或系统层流量。

@@ -9,15 +9,23 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/miahwk/profileweave/internal/profile/domain"
 )
 
-const schemaVersion = 1
+const schemaVersion = 2
+
+type diskTrashEntry struct {
+	Profile          domain.Profile `json:"profile"`
+	DeletedAt        time.Time      `json:"deletedAt"`
+	DataRestoreToken string         `json:"dataRestoreToken,omitempty"`
+}
 
 type diskData struct {
 	SchemaVersion int              `json:"schemaVersion"`
 	Profiles      []domain.Profile `json:"profiles"`
+	Trash         []diskTrashEntry `json:"trash"`
 }
 
 type JSONRepository struct {
@@ -98,26 +106,10 @@ func (r *JSONRepository) Save(_ context.Context, profile domain.Profile, expecte
 	return r.write(data)
 }
 
-func (r *JSONRepository) Delete(_ context.Context, id string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	data, err := r.read()
-	if err != nil {
-		return err
-	}
-	for i := range data.Profiles {
-		if data.Profiles[i].ID == id {
-			data.Profiles = append(data.Profiles[:i], data.Profiles[i+1:]...)
-			return r.write(data)
-		}
-	}
-	return domain.ErrNotFound
-}
-
 func (r *JSONRepository) read() (diskData, error) {
 	raw, err := os.ReadFile(r.path)
 	if errors.Is(err, os.ErrNotExist) {
-		return diskData{SchemaVersion: schemaVersion, Profiles: []domain.Profile{}}, nil
+		return emptyDiskData(), nil
 	}
 	if err != nil {
 		return diskData{}, fmt.Errorf("read profiles: %w", err)
@@ -126,13 +118,23 @@ func (r *JSONRepository) read() (diskData, error) {
 	if err := json.Unmarshal(raw, &data); err != nil {
 		return diskData{}, fmt.Errorf("decode profiles: %w", err)
 	}
-	if data.SchemaVersion != schemaVersion {
+	if data.SchemaVersion == 1 {
+		data.SchemaVersion = schemaVersion
+		data.Trash = []diskTrashEntry{}
+	} else if data.SchemaVersion != schemaVersion {
 		return diskData{}, fmt.Errorf("unsupported profile schema version %d", data.SchemaVersion)
 	}
 	if data.Profiles == nil {
 		data.Profiles = []domain.Profile{}
 	}
+	if data.Trash == nil {
+		data.Trash = []diskTrashEntry{}
+	}
 	return data, nil
+}
+
+func emptyDiskData() diskData {
+	return diskData{SchemaVersion: schemaVersion, Profiles: []domain.Profile{}, Trash: []diskTrashEntry{}}
 }
 
 func (r *JSONRepository) write(data diskData) error {

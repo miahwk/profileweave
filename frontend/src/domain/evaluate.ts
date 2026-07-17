@@ -25,6 +25,9 @@ export function evaluateDraft(draft: ProfileDraft): ConsistencyReport {
   const issues: ReportIssue[] = []
   const fp = draft.fingerprint
   if (!draft.name.trim()) issues.push(issue('error', 'name_required', 'Profile 名称不能为空', 'name'))
+  if (fp.os !== 'native') {
+    issues.push(issue('warning', 'os_diagnostic_only', '目标操作系统仅用于一致性诊断，运行时仍保留本机操作系统', 'fingerprint.os'))
+  }
   try {
     const url = new URL(draft.startURL)
     if (!['http:', 'https:'].includes(url.protocol)) throw new Error()
@@ -38,6 +41,9 @@ export function evaluateDraft(draft: ProfileDraft): ConsistencyReport {
   }
   if (!hasValidTimezone(fp.timezone)) {
     issues.push(issue('error', 'timezone_invalid', '请输入有效的 IANA 时区，例如 Asia/Shanghai', 'fingerprint.timezone'))
+  }
+  if (fp.languages.length) {
+    issues.push(issue('info', 'languages_diagnostic_only', '语言列表会保存用于诊断；当前运行时只通过 --lang 应用 Locale', 'fingerprint.languages'))
   }
   if (fp.screen.width < 800 || fp.screen.height < 600 || fp.screen.width > 7680 || fp.screen.height > 4320) {
     issues.push(issue('warning', 'screen_unusual', '屏幕尺寸超出常见桌面范围，请确认这是预期配置', 'fingerprint.screen'))

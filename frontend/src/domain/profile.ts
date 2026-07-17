@@ -47,6 +47,12 @@ export interface Profile extends ProfileDraft {
   updatedAt: string
 }
 
+export interface TrashItem {
+  profile: Profile
+  deletedAt: string
+  hasBrowserData: boolean
+}
+
 export interface Session {
   profileId: string
   status: SessionStatus

@@ -2,13 +2,14 @@
 
 ## Supported versions
 
-Security fixes are applied to the latest released minor version and the
-default branch. Preview builds and older releases may be asked to upgrade
-before a fix is backported.
+Before the first stable release, security fixes are applied to the default
+branch on a best-effort basis. After `v0.1.0` is published, fixes will target
+the latest released minor version and the default branch; older releases may
+be asked to upgrade before a fix is backported.
 
 | Version | Supported |
 | --- | --- |
-| Latest release | Yes |
+| Stable release | Not published yet |
 | Default branch | Best effort |
 | Older releases | No |
 

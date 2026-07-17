@@ -39,6 +39,15 @@ func TestProfileDataTrashCanBeRestored(t *testing.T) {
 	if raw, err := os.ReadFile(marker); err != nil || string(raw) != "preserved" {
 		t.Fatalf("restored marker=%q err=%v", raw, err)
 	}
+	if err := runtime.RollbackRestoredProfileData(runtimeTestProfileID, token); err != nil {
+		t.Fatal(err)
+	}
+	if err := runtime.PurgeProfileData(runtimeTestProfileID, token); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "trash", "browser-data", token)); !os.IsNotExist(err) {
+		t.Fatalf("trashed data remains after purge: %v", err)
+	}
 }
 
 func TestProfileDataLifecycleRejectsUnsafePaths(t *testing.T) {
@@ -54,5 +63,8 @@ func TestProfileDataLifecycleRejectsUnsafePaths(t *testing.T) {
 	}
 	if err := runtime.RestoreProfileData(runtimeTestProfileID, "../escape"); err == nil {
 		t.Fatal("RestoreProfileData accepted unsafe token")
+	}
+	if err := runtime.PurgeProfileData(runtimeTestProfileID, "../escape"); err == nil {
+		t.Fatal("PurgeProfileData accepted unsafe token")
 	}
 }

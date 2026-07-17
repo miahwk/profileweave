@@ -47,6 +47,12 @@ func Evaluate(fp Fingerprint, proxy Proxy) Report {
 
 	if fp.OS != "native" && fp.OS != "windows" && fp.OS != "macos" && fp.OS != "linux" {
 		add(SeverityError, "os_invalid", "fingerprint.os", "OS target must be native, windows, macos, or linux")
+	} else if fp.OS != "native" {
+		if fp.OS == hostOS() {
+			add(SeverityInfo, "os_diagnostic_only", "fingerprint.os", "OS target matches the host but is retained only as diagnostic metadata")
+		} else {
+			add(SeverityWarning, "os_not_applied", "fingerprint.os", "OS target is not emulated; the runtime retains the host operating system")
+		}
 	}
 	if fp.UAMode != "native" && fp.UAMode != "custom" {
 		add(SeverityError, "ua_mode_invalid", "fingerprint.uaMode", "UA mode must be native or custom")
@@ -64,8 +70,11 @@ func Evaluate(fp Fingerprint, proxy Proxy) Report {
 	}
 	if len(fp.Languages) == 0 {
 		add(SeverityError, "languages_empty", "fingerprint.languages", "at least one language is required")
-	} else if !strings.EqualFold(fp.Locale, fp.Languages[0]) {
-		add(SeverityWarning, "locale_language_conflict", "fingerprint.languages", "the first language should match locale")
+	} else {
+		if !strings.EqualFold(fp.Locale, fp.Languages[0]) {
+			add(SeverityWarning, "locale_language_conflict", "fingerprint.languages", "the first language should match locale")
+		}
+		add(SeverityInfo, "languages_unsupported", "fingerprint.languages", "language preferences are saved for diagnostics but are not applied by the MVP runtime")
 	}
 	if _, err := time.LoadLocation(fp.Timezone); err != nil || fp.Timezone == "Local" {
 		add(SeverityError, "timezone_invalid", "fingerprint.timezone", "timezone must be a known IANA timezone")
@@ -106,6 +115,13 @@ func Evaluate(fp Fingerprint, proxy Proxy) Report {
 		score = 0
 	}
 	return Report{Score: score, Issues: issues}
+}
+
+func hostOS() string {
+	if runtime.GOOS == "darwin" {
+		return "macos"
+	}
+	return runtime.GOOS
 }
 
 func validateProxy(proxy Proxy, add func(Severity, string, string, string)) {

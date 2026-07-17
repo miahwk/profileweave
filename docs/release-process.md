@@ -4,6 +4,9 @@
 构建 Windows、Linux、macOS 的 amd64/arm64 归档，发布 SHA-256、SPDX JSON SBOM
 并生成 GitHub build provenance。
 
+> 当前尚未发布稳定版本。`v0.1.0` 仍处于 `Unreleased`，只有完成本文全部发布前检查、
+> 从已验证的默认分支提交创建 tag，并确认 Release 工作流成功后，才能标记为已发布。
+
 ## 仓库一次性配置
 
 公开发布前，仓库所有者应完成：

@@ -26,4 +26,15 @@ describe('draft consistency evaluation', () => {
     expect(report.issues.map((item) => item.code)).toEqual(expect.arrayContaining(['ua_os_conflict', 'proxy_invalid']))
     expect(report.score).toBeLessThan(60)
   })
+
+  it('marks OS and languages that are diagnostic-only', () => {
+    const draft = defaultDraft()
+    draft.name = 'Cross-platform QA'
+    draft.fingerprint.os = 'macos'
+
+    const report = evaluateDraft(draft)
+
+    expect(report.issues.map((item) => item.code)).toEqual(expect.arrayContaining(['os_diagnostic_only', 'languages_diagnostic_only']))
+    expect(report.issues.filter((item) => item.severity === 'error')).toHaveLength(0)
+  })
 })

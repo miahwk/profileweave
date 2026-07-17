@@ -23,11 +23,12 @@ type ProfileReader interface {
 }
 
 type Service struct {
-	mu       sync.RWMutex
-	profiles ProfileReader
-	runtime  domain.Runtime
-	sessions map[string]domain.Session
-	now      func() time.Time
+	mu          sync.RWMutex
+	lifecycleMu sync.Mutex
+	profiles    ProfileReader
+	runtime     domain.Runtime
+	sessions    map[string]domain.Session
+	now         func() time.Time
 }
 
 func NewService(profiles ProfileReader, runtime domain.Runtime) *Service {
@@ -39,6 +40,13 @@ func (s *Service) IsRunning(profileID string) bool {
 	defer s.mu.RUnlock()
 	session, ok := s.sessions[profileID]
 	return ok && active(session.Status)
+}
+
+// LockProfile serializes profile mutations with browser start/stop transitions.
+// The local application favors lifecycle integrity over parallel mutations.
+func (s *Service) LockProfile(_ string) func() {
+	s.lifecycleMu.Lock()
+	return s.lifecycleMu.Unlock
 }
 
 func (s *Service) List() []domain.Session {
@@ -61,6 +69,9 @@ func (s *Service) List() []domain.Session {
 }
 
 func (s *Service) Launch(ctx context.Context, profileID string) (domain.Session, error) {
+	unlock := s.LockProfile(profileID)
+	defer unlock()
+
 	profile, err := s.profiles.Get(ctx, profileID)
 	if err != nil {
 		return domain.Session{}, err
@@ -92,6 +103,9 @@ func (s *Service) Launch(ctx context.Context, profileID string) (domain.Session,
 }
 
 func (s *Service) Stop(ctx context.Context, profileID string) (domain.Session, error) {
+	unlock := s.LockProfile(profileID)
+	defer unlock()
+
 	s.mu.Lock()
 	current, ok := s.sessions[profileID]
 	if !ok || !active(current.Status) {

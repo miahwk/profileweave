@@ -38,6 +38,8 @@ func writeError(w http.ResponseWriter, err error) {
 		writeAPIError(w, http.StatusUnprocessableEntity, "profile_invalid", "profile configuration is invalid", validation.Details)
 	case errors.Is(err, profiledomain.ErrNotFound):
 		writeAPIError(w, http.StatusNotFound, "profile_not_found", "profile was not found", nil)
+	case errors.Is(err, profiledomain.ErrTrashNotFound):
+		writeAPIError(w, http.StatusNotFound, "trash_not_found", "trashed profile was not found", nil)
 	case errors.Is(err, profiledomain.ErrConflict):
 		writeAPIError(w, http.StatusConflict, "revision_conflict", "profile was changed by another request", nil)
 	case errors.Is(err, profileapp.ErrProfileRunning):

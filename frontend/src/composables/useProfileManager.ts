@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { ApiError, api as defaultApi, type ProfileApi } from '@/api/client'
 import { evaluateDraft } from '@/domain/evaluate'
-import { defaultDraft, toDraft, type Capabilities, type ConsistencyReport, type Profile, type ProfileDraft, type Session } from '@/domain/profile'
+import { defaultDraft, toDraft, type Capabilities, type ConsistencyReport, type Profile, type ProfileDraft, type Session, type TrashItem } from '@/domain/profile'
 
 function messageFrom(error: unknown): string {
   if (error instanceof ApiError) {
@@ -13,6 +13,7 @@ function messageFrom(error: unknown): string {
 
 export function useProfileManager(service: ProfileApi = defaultApi) {
   const profiles = ref<Profile[]>([])
+  const trash = ref<TrashItem[]>([])
   const sessions = ref<Session[]>([])
   const capabilities = ref<Capabilities>({ browsers: [], features: [] })
   const reports = ref<Record<string, ConsistencyReport>>({})
@@ -62,8 +63,8 @@ export function useProfileManager(service: ProfileApi = defaultApi) {
   async function load() {
     loading.value = true
     loadError.value = ''
-    const [profileResult, sessionResult, capabilityResult] = await Promise.allSettled([
-      service.listProfiles(), service.listSessions(), service.getCapabilities(),
+    const [profileResult, sessionResult, capabilityResult, trashResult] = await Promise.allSettled([
+      service.listProfiles(), service.listSessions(), service.getCapabilities(), service.listTrash(),
     ])
     if (profileResult.status === 'fulfilled') profiles.value = profileResult.value
     else loadError.value = messageFrom(profileResult.reason)
@@ -71,6 +72,8 @@ export function useProfileManager(service: ProfileApi = defaultApi) {
     else loadError.value ||= messageFrom(sessionResult.reason)
     if (capabilityResult.status === 'fulfilled') capabilities.value = capabilityResult.value
     else loadError.value ||= messageFrom(capabilityResult.reason)
+    if (trashResult.status === 'fulfilled') trash.value = trashResult.value
+    else loadError.value ||= messageFrom(trashResult.reason)
     loading.value = false
     if (profileResult.status === 'fulfilled') void loadReports(profileResult.value)
   }
@@ -131,9 +134,31 @@ export function useProfileManager(service: ProfileApi = defaultApi) {
     try {
       await service.deleteProfile(profile.id)
       profiles.value = profiles.value.filter((item) => item.id !== profile.id)
-      showNotice(`已删除“${profile.name}”`)
+      delete reports.value[profile.id]
+      try { trash.value = await service.listTrash() } catch { /* The profile is already recoverably deleted. */ }
+      showNotice(`“${profile.name}”已移入回收站`)
     } catch (error) { loadError.value = messageFrom(error) }
     finally { setBusy(profile.id, false) }
+  }
+  async function restore(item: TrashItem) {
+    setBusy(item.profile.id, true)
+    try {
+      const restored = await service.restoreTrash(item.profile.id)
+      trash.value = trash.value.filter((entry) => entry.profile.id !== item.profile.id)
+      profiles.value.unshift(restored)
+      reports.value[restored.id] = await service.validateProfile(restored.id)
+      showNotice(`已恢复“${restored.name}”及其可用浏览器数据`)
+    } catch (error) { loadError.value = messageFrom(error) }
+    finally { setBusy(item.profile.id, false) }
+  }
+  async function purge(item: TrashItem) {
+    setBusy(item.profile.id, true)
+    try {
+      await service.purgeTrash(item.profile.id)
+      trash.value = trash.value.filter((entry) => entry.profile.id !== item.profile.id)
+      showNotice(`已永久删除“${item.profile.name}”`)
+    } catch (error) { loadError.value = messageFrom(error) }
+    finally { setBusy(item.profile.id, false) }
   }
   async function launch(profile: Profile) {
     setBusy(profile.id, true)
@@ -155,8 +180,8 @@ export function useProfileManager(service: ProfileApi = defaultApi) {
   }
 
   return {
-    profiles, sessions, capabilities, reports, search, loading, loadError, notice, editorOpen, editingProfile,
+    profiles, trash, sessions, capabilities, reports, search, loading, loadError, notice, editorOpen, editingProfile,
     draft, actionIds, filteredProfiles, sessionByProfile, runningCount, featureCoverage, draftReport, draftHasErrors,
-    load, refreshSessions, create, edit, closeEditor, save, duplicate, remove, launch, stop,
+    load, refreshSessions, create, edit, closeEditor, save, duplicate, remove, restore, purge, launch, stop,
   }
 }

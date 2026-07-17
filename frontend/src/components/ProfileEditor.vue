@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import ReportList from './ReportList.vue'
+import { applyDesktopTemplate, desktopTemplates } from '@/domain/desktopTemplates'
 import type { BrowserCapability, ConsistencyReport, ProfileDraft } from '@/domain/profile'
 
 const model = defineModel<ProfileDraft>({ required: true })
@@ -13,6 +14,7 @@ const props = defineProps<{
   hasErrors: boolean
 }>()
 const emit = defineEmits<{ close: []; save: [] }>()
+const selectedTemplateID = ref('')
 
 const tagsText = computed({
   get: () => model.value.tags.join(', '),
@@ -24,6 +26,12 @@ const languagesText = computed({
 })
 const selectedBrowserMissing = computed(() => model.value.browser.kind !== 'auto' && model.value.browser.kind !== 'custom'
   && !props.browsers.some((browser) => browser.id === model.value.browser.kind && browser.available))
+const selectedTemplate = computed(() => desktopTemplates.find((template) => template.id === selectedTemplateID.value))
+
+function useSelectedTemplate() {
+  if (!selectedTemplateID.value) return
+  model.value = applyDesktopTemplate(model.value, selectedTemplateID.value)
+}
 </script>
 
 <template>
@@ -37,6 +45,17 @@ const selectedBrowserMissing = computed(() => model.value.browser.kind !== 'auto
         </header>
 
         <div class="editor__body">
+          <aside class="template-picker" aria-labelledby="template-title">
+            <div><span class="eyebrow">Controlled presets</span><h3 id="template-title">从稳定桌面模板开始</h3><p>{{ selectedTemplate?.summary ?? '选择后仍可逐项调整。' }}</p></div>
+            <div class="template-picker__controls">
+              <select v-model="selectedTemplateID" aria-label="桌面模板">
+                <option value="">选择模板</option>
+                <option v-for="template in desktopTemplates" :key="template.id" :value="template.id">{{ template.label }}</option>
+              </select>
+              <button class="button button--quiet" type="button" :disabled="!selectedTemplateID" @click="useSelectedTemplate">应用模板</button>
+            </div>
+            <small>模板只是确定性的配置起点；保存模板不代表所有字段已由浏览器应用，也不代表环境不可检测。</small>
+          </aside>
           <section aria-labelledby="basic-title">
             <div class="section-title"><span>01</span><div><h3 id="basic-title">基本信息</h3><p>命名并选择用于启动隔离会话的本地浏览器。</p></div></div>
             <div class="field-grid">
@@ -103,9 +122,10 @@ const selectedBrowserMissing = computed(() => model.value.browser.kind !== 'auto
 .editor { position: relative; display: flex; flex-direction: column; width: min(720px, 94vw); height: 100%; border-left: 1px solid var(--line-strong); background: var(--surface-0); box-shadow: -24px 0 80px rgba(0,0,0,.42); }
 .editor__header { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex: 0 0 auto; padding: 21px 26px; border-bottom: 1px solid var(--line); background: rgba(15,19,26,.94); }.eyebrow { color: var(--mint); font-size: 9px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }.editor__header h2 { margin: 5px 0 0; color: var(--text); font: 650 21px var(--display); }.close-button { width: 35px; height: 35px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); background: var(--surface-2); font-size: 20px; cursor: pointer; }
 .editor__body { min-height: 0; overflow-y: auto; padding: 0 26px 40px; }.editor__body section { padding: 27px 0; border-bottom: 1px solid var(--line); }.section-title { display: flex; gap: 13px; margin-bottom: 20px; }.section-title > span { display: grid; place-items: center; flex: 0 0 29px; height: 29px; border: 1px solid var(--line); border-radius: 8px; color: var(--mint); background: rgba(80,217,169,.06); font: 750 9px var(--mono); }.section-title h3 { margin: 0; color: var(--text); font: 650 14px var(--display); }.section-title p { margin: 4px 0 0; color: var(--text-soft); font-size: 10px; line-height: 1.45; }
+.template-picker { display: grid; grid-template-columns: 1fr auto; gap: 12px 20px; margin-top: 22px; padding: 16px; border: 1px solid rgba(80,217,169,.2); border-radius: var(--radius-md); background: rgba(80,217,169,.045); }.template-picker h3 { margin: 4px 0 0; color: var(--text); font: 650 13px var(--display); }.template-picker p,.template-picker small { margin: 4px 0 0; color: var(--text-soft); font-size: 9px; line-height: 1.5; }.template-picker > small { grid-column: 1 / -1; }.template-picker__controls { display: flex; align-items: center; gap: 8px; }.template-picker__controls select { width: 142px; }.template-picker__controls .button { white-space: nowrap; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }.field-grid--proxy { margin-top: 15px; }.field--wide { grid-column: 1 / -1; }.field { display: grid; align-content: start; gap: 7px; color: var(--muted); font-size: 10px; font-weight: 700; }.field > span b { color: var(--danger); }.field small { color: var(--text-soft); font-size: 9px; font-weight: 450; line-height: 1.45; }.field .field-error { color: #ffaaa5; }
 input,select,textarea { width: 100%; min-width: 0; padding: 10px 11px; border: 1px solid var(--line); border-radius: 9px; outline: none; color: var(--text); background: var(--surface-2); font: 500 11px/1.4 var(--sans); transition: border-color .18s, box-shadow .18s; }textarea { resize: vertical; }input:focus,select:focus,textarea:focus { border-color: var(--mint); box-shadow: 0 0 0 3px rgba(80,217,169,.1); }input::placeholder,textarea::placeholder { color: #596272; }
 .choice-group { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; margin: 0; padding: 0; border: 0; }.choice-group legend { margin-bottom: 8px; color: var(--muted); font-size: 10px; font-weight: 700; }.choice-group label { position: relative; cursor: pointer; }.choice-group input { position: absolute; opacity: 0; pointer-events: none; }.choice-group span { display: block; padding: 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2); }.choice-group b,.choice-group small { display: block; }.choice-group b { color: var(--muted); font-size: 10px; }.choice-group small { margin-top: 3px; color: var(--text-soft); font-size: 9px; }.choice-group input:checked + span { border-color: rgba(80,217,169,.55); background: rgba(80,217,169,.075); box-shadow: 0 0 0 2px rgba(80,217,169,.05); }.choice-group input:checked + span b { color: var(--mint); }.choice-group input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: 2px; }
 .live-report { margin-top: 20px; }.editor__footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex: 0 0 auto; padding: 15px 24px; border-top: 1px solid var(--line); background: rgba(15,19,26,.97); }.editor__footer p { display: grid; gap: 2px; margin: 0; }.editor__footer p b { color: var(--muted); font-size: 10px; }.editor__footer p span { color: var(--text-soft); font-size: 9px; }.editor__footer > div { display: flex; gap: 8px; }
-@media (max-width: 620px) { .editor { width: 100%; }.editor__header,.editor__body { padding-inline: 18px; }.field-grid { grid-template-columns: 1fr; }.field--wide { grid-column: auto; }.choice-group { grid-template-columns: 1fr; }.editor__footer { align-items: stretch; flex-direction: column; }.editor__footer > div { display: grid; grid-template-columns: 1fr 1fr; } }
+@media (max-width: 620px) { .editor { width: 100%; }.editor__header,.editor__body { padding-inline: 18px; }.template-picker { grid-template-columns: 1fr; }.template-picker__controls select { width: auto; flex: 1; }.field-grid { grid-template-columns: 1fr; }.field--wide { grid-column: auto; }.choice-group { grid-template-columns: 1fr; }.editor__footer { align-items: stretch; flex-direction: column; }.editor__footer > div { display: grid; grid-template-columns: 1fr 1fr; } }
 </style>

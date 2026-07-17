@@ -7,6 +7,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+The first public release is planned as `v0.1.0`; no stable version has been
+published yet.
+
 ### Added
 
 - Open-source governance, security, release, and upgrade documentation.
@@ -14,6 +17,16 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   and build provenance attestation.
 - Per-process control tokens, cross-process data-directory locking, and
   browser process-tree shutdown on Windows, Linux, and macOS.
+- Local profile creation, update, duplication, validation, launch, stop, and
+  session listing.
+- Browser discovery and custom executable selection for Chromium-family
+  browsers.
+- Separate browser user-data directories and atomic JSON metadata storage.
+- Fingerprint configuration coherence diagnostics and applied-support status.
+- Loopback Go HTTP API and Vue 3 management console.
+- Recoverable profile deletion with recycle-bin listing, restoration, explicit
+  permanent purge, and browser-data rollback on metadata failures.
+- Deterministic Chinese, English, and European desktop configuration templates.
 
 ### Changed
 
@@ -30,15 +43,5 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - The management console now sends CSP, clickjacking, referrer, permissions,
   content-type, and cross-origin isolation headers.
 - Session errors no longer expose browser paths, proxy values, URLs, or argv.
-
-## [0.1.0] - 2026-07-17
-
-### Added
-
-- Local profile creation, update, duplication, validation, launch, stop, and
-  session listing.
-- Browser discovery and custom executable selection for Chromium-family
-  browsers.
-- Separate browser user-data directories and atomic JSON metadata storage.
-- Fingerprint configuration coherence diagnostics and applied-support status.
-- Loopback Go HTTP API and Vue 3 management console.
+- OS target and language preferences are now reported honestly as diagnostic-only
+  capabilities; browser launch failures are visible in the profile card.

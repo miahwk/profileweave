@@ -20,6 +20,10 @@ type Activity interface {
 	IsRunning(profileID string) bool
 }
 
+type LifecycleLocker interface {
+	LockProfile(profileID string) func()
+}
+
 type PathValidator interface {
 	ValidateExecutable(path string) error
 }
@@ -28,6 +32,8 @@ type DataProvisioner interface {
 	EnsureProfileData(profileID string) (created bool, err error)
 	TrashProfileData(profileID string) (restoreToken string, err error)
 	RestoreProfileData(profileID, restoreToken string) error
+	RollbackRestoredProfileData(profileID, restoreToken string) error
+	PurgeProfileData(profileID, restoreToken string) error
 }
 
 type Service struct {
@@ -95,8 +101,14 @@ func (s *Service) Create(ctx context.Context, in domain.Input) (domain.Profile, 
 	}
 	if err := s.repo.Save(ctx, profile, 0); err != nil {
 		if dataCreated {
-			if _, cleanupErr := s.data.TrashProfileData(profile.ID); cleanupErr != nil {
+			token, cleanupErr := s.data.TrashProfileData(profile.ID)
+			if cleanupErr != nil {
 				return domain.Profile{}, errors.Join(err, fmt.Errorf("archive unused profile data: %w", cleanupErr))
+			}
+			if token != "" {
+				if cleanupErr := s.data.PurgeProfileData(profile.ID, token); cleanupErr != nil {
+					return domain.Profile{}, errors.Join(err, fmt.Errorf("remove unused profile data: %w", cleanupErr))
+				}
 			}
 		}
 		return domain.Profile{}, err
@@ -105,6 +117,9 @@ func (s *Service) Create(ctx context.Context, in domain.Input) (domain.Profile, 
 }
 
 func (s *Service) Update(ctx context.Context, id string, expected uint64, in domain.Input) (domain.Profile, error) {
+	unlock := s.lockLifecycle(id)
+	defer unlock()
+
 	if err := s.validatePath(in); err != nil {
 		return domain.Profile{}, err
 	}
@@ -139,6 +154,9 @@ func (s *Service) Duplicate(ctx context.Context, id string) (domain.Profile, err
 }
 
 func (s *Service) Delete(ctx context.Context, id string) error {
+	unlock := s.lockLifecycle(id)
+	defer unlock()
+
 	if _, err := s.Get(ctx, id); err != nil {
 		return err
 	}
@@ -153,7 +171,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 			return err
 		}
 	}
-	if err := s.repo.Delete(ctx, id); err != nil {
+	if err := s.repo.MoveToTrash(ctx, id, restoreToken, s.now()); err != nil {
 		if restoreToken != "" {
 			if restoreErr := s.data.RestoreProfileData(id, restoreToken); restoreErr != nil {
 				return errors.Join(err, fmt.Errorf("restore profile data: %w", restoreErr))
@@ -180,6 +198,13 @@ func (s *Service) validatePath(in domain.Input) error {
 		return &domain.ValidationError{Details: []domain.FieldError{{Field: "browser.customPath", Message: err.Error()}}}
 	}
 	return nil
+}
+
+func (s *Service) lockLifecycle(id string) func() {
+	if locker, ok := s.activity.(LifecycleLocker); ok {
+		return locker.LockProfile(id)
+	}
+	return func() {}
 }
 
 func generateID() (string, error) {

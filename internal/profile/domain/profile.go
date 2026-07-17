@@ -13,9 +13,10 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("profile not found")
-	ErrConflict = errors.New("profile revision conflict")
-	idPattern   = regexp.MustCompile(`^p_[a-f0-9]{32}$`)
+	ErrNotFound      = errors.New("profile not found")
+	ErrTrashNotFound = errors.New("trashed profile not found")
+	ErrConflict      = errors.New("profile revision conflict")
+	idPattern        = regexp.MustCompile(`^p_[a-f0-9]{32}$`)
 )
 
 type Browser struct {
@@ -60,7 +61,11 @@ type Repository interface {
 	List(context.Context) ([]Profile, error)
 	Get(context.Context, string) (Profile, error)
 	Save(context.Context, Profile, uint64) error
-	Delete(context.Context, string) error
+	ListTrash(context.Context) ([]TrashedProfile, error)
+	GetTrash(context.Context, string) (TrashedProfile, error)
+	MoveToTrash(context.Context, string, string, time.Time) error
+	RestoreTrash(context.Context, string) (Profile, error)
+	PurgeTrash(context.Context, string) error
 }
 
 func ValidID(id string) bool { return idPattern.MatchString(id) }

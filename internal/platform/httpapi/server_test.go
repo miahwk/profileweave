@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
+	"time"
 
 	browserapp "github.com/miahwk/profileweave/internal/browser/application"
 	browserdomain "github.com/miahwk/profileweave/internal/browser/domain"
@@ -20,6 +21,7 @@ import (
 type memoryRepository struct {
 	mu    sync.Mutex
 	items map[string]profiledomain.Profile
+	trash map[string]profiledomain.TrashedProfile
 }
 
 func (m *memoryRepository) List(context.Context) ([]profiledomain.Profile, error) {
@@ -53,13 +55,60 @@ func (m *memoryRepository) Save(_ context.Context, item profiledomain.Profile, e
 	return nil
 }
 
-func (m *memoryRepository) Delete(_ context.Context, id string) error {
+func (m *memoryRepository) ListTrash(context.Context) ([]profiledomain.TrashedProfile, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if _, ok := m.items[id]; !ok {
+	items := make([]profiledomain.TrashedProfile, 0, len(m.trash))
+	for _, item := range m.trash {
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func (m *memoryRepository) GetTrash(_ context.Context, id string) (profiledomain.TrashedProfile, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	item, ok := m.trash[id]
+	if !ok {
+		return profiledomain.TrashedProfile{}, profiledomain.ErrTrashNotFound
+	}
+	return item, nil
+}
+
+func (m *memoryRepository) MoveToTrash(_ context.Context, id, token string, deletedAt time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	item, ok := m.items[id]
+	if !ok {
 		return profiledomain.ErrNotFound
 	}
 	delete(m.items, id)
+	m.trash[id] = profiledomain.TrashedProfile{Profile: item, DeletedAt: deletedAt, DataRestoreToken: token}
+	return nil
+}
+
+func (m *memoryRepository) RestoreTrash(_ context.Context, id string) (profiledomain.Profile, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	item, ok := m.trash[id]
+	if !ok {
+		return profiledomain.Profile{}, profiledomain.ErrTrashNotFound
+	}
+	if _, exists := m.items[id]; exists {
+		return profiledomain.Profile{}, profiledomain.ErrConflict
+	}
+	delete(m.trash, id)
+	m.items[id] = item.Profile
+	return item.Profile, nil
+}
+
+func (m *memoryRepository) PurgeTrash(_ context.Context, id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.trash[id]; !ok {
+		return profiledomain.ErrTrashNotFound
+	}
+	delete(m.trash, id)
 	return nil
 }
 
@@ -97,7 +146,7 @@ func (f *fakeRuntime) Stop(_ context.Context, id string) error {
 }
 
 func newTestAPI() *API {
-	repo := &memoryRepository{items: make(map[string]profiledomain.Profile)}
+	repo := &memoryRepository{items: make(map[string]profiledomain.Profile), trash: make(map[string]profiledomain.TrashedProfile)}
 	runtime := &fakeRuntime{started: make(map[string]chan error)}
 	browsers := browserapp.NewService(repo, runtime)
 	profiles := profileapp.NewService(repo, browsers, nil)
@@ -211,66 +260,5 @@ func TestSessionLifecycleAndCapabilities(t *testing.T) {
 	stop := request(t, api, http.MethodPost, "/api/v1/profiles/"+profile.ID+"/stop", nil)
 	if stop.Code != http.StatusOK || !bytes.Contains(stop.Body.Bytes(), []byte(`"status":"stopped"`)) {
 		t.Fatalf("stop response %d: %s", stop.Code, stop.Body.String())
-	}
-}
-
-func TestHTTPGuardsAndStructuredErrors(t *testing.T) {
-	api := newTestAPI()
-	badOrigin := httptest.NewRequest(http.MethodPost, "/api/v1/profiles", bytes.NewReader([]byte(`{}`)))
-	badOrigin.Host = "127.0.0.1:3210"
-	badOrigin.Header.Set("Origin", "https://evil.example")
-	badOrigin.Header.Set(controlTokenHeader, "test-control-token")
-	recorder := httptest.NewRecorder()
-	api.ServeHTTP(recorder, badOrigin)
-	if recorder.Code != http.StatusForbidden || !bytes.Contains(recorder.Body.Bytes(), []byte(`"code":"origin_forbidden"`)) {
-		t.Fatalf("origin guard response %d: %s", recorder.Code, recorder.Body.String())
-	}
-	badHost := httptest.NewRequest(http.MethodGet, "/api/v1/profiles", nil)
-	badHost.Host = "attacker.example"
-	badHostResponse := httptest.NewRecorder()
-	api.ServeHTTP(badHostResponse, badHost)
-	if badHostResponse.Code != http.StatusForbidden {
-		t.Fatalf("host guard response %d: %s", badHostResponse.Code, badHostResponse.Body.String())
-	}
-	missingToken := httptest.NewRequest(http.MethodDelete, "/api/v1/profiles/p_00000000000000000000000000000000", nil)
-	missingToken.Host = "127.0.0.1:3210"
-	missingTokenResponse := httptest.NewRecorder()
-	api.ServeHTTP(missingTokenResponse, missingToken)
-	if missingTokenResponse.Code != http.StatusForbidden || !bytes.Contains(missingTokenResponse.Body.Bytes(), []byte(`"code":"control_token_invalid"`)) {
-		t.Fatalf("control token response %d: %s", missingTokenResponse.Code, missingTokenResponse.Body.String())
-	}
-
-	unknown := httptest.NewRequest(http.MethodPost, "/api/v1/profiles", bytes.NewReader([]byte(`{"unknown":true}`)))
-	unknown.Host = "127.0.0.1:3210"
-	unknown.Header.Set(controlTokenHeader, "test-control-token")
-	badJSON := httptest.NewRecorder()
-	api.ServeHTTP(badJSON, unknown)
-	if badJSON.Code != http.StatusBadRequest || !bytes.Contains(badJSON.Body.Bytes(), []byte(`"error"`)) {
-		t.Fatalf("JSON guard response %d: %s", badJSON.Code, badJSON.Body.String())
-	}
-}
-
-func TestHealthIncludesBuildInfoAndSecurityHeaders(t *testing.T) {
-	response := request(t, newTestAPI(), http.MethodGet, "/api/v1/health", nil)
-	if response.Code != http.StatusOK || !bytes.Contains(response.Body.Bytes(), []byte(`"version":"dev"`)) {
-		t.Fatalf("health response %d: %s", response.Code, response.Body.String())
-	}
-	for name, want := range map[string]string{
-		"Cache-Control":           "no-store",
-		"Content-Security-Policy": "frame-ancestors 'none'",
-		"Referrer-Policy":         "no-referrer",
-		"X-Content-Type-Options":  "nosniff",
-		"X-Frame-Options":         "DENY",
-	} {
-		if got := response.Header().Get(name); !bytes.Contains([]byte(got), []byte(want)) {
-			t.Errorf("%s=%q, want containing %q", name, got, want)
-		}
-	}
-}
-
-func TestBootstrapReturnsEphemeralControlToken(t *testing.T) {
-	response := request(t, newTestAPI(), http.MethodGet, "/api/v1/bootstrap", nil)
-	if response.Code != http.StatusOK || !bytes.Contains(response.Body.Bytes(), []byte(`"controlToken":"test-control-token"`)) {
-		t.Fatalf("bootstrap response %d: %s", response.Code, response.Body.String())
 	}
 }

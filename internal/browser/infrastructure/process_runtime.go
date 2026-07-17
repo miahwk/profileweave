@@ -68,9 +68,9 @@ func (r *ProcessRuntime) EnsureProfileData(profileID string) (bool, error) {
 	}
 	r.dataMu.Lock()
 	defer r.dataMu.Unlock()
-	info, err := os.Stat(profileDir)
+	info, err := os.Lstat(profileDir)
 	if err == nil {
-		if !info.IsDir() {
+		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 			return false, errors.New("profile browser data path is not a directory")
 		}
 		return false, nil
@@ -91,11 +91,11 @@ func (r *ProcessRuntime) TrashProfileData(profileID string) (string, error) {
 	}
 	r.dataMu.Lock()
 	defer r.dataMu.Unlock()
-	info, err := os.Stat(profileDir)
+	info, err := os.Lstat(profileDir)
 	if errors.Is(err, os.ErrNotExist) {
 		return "", nil
 	}
-	if err != nil || !info.IsDir() {
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return "", errors.New("inspect profile browser directory")
 	}
 	token, err := newTrashToken(profileID)
@@ -113,17 +113,18 @@ func (r *ProcessRuntime) RestoreProfileData(profileID, restoreToken string) erro
 	if err != nil {
 		return err
 	}
-	if !validRestoreToken(profileID, restoreToken) {
-		return errors.New("invalid profile data restore token")
+	trashed, err := r.trashedDataPath(profileID, restoreToken)
+	if err != nil {
+		return err
 	}
 	r.dataMu.Lock()
 	defer r.dataMu.Unlock()
-	if _, err := os.Stat(profileDir); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Lstat(profileDir); !errors.Is(err, os.ErrNotExist) {
 		return errors.New("profile browser directory already exists")
 	}
-	trashed := filepath.Join(r.trashRoot, restoreToken)
-	if filepath.Dir(trashed) != filepath.Clean(r.trashRoot) {
-		return errors.New("profile data trash path escaped its root")
+	info, err := os.Lstat(trashed)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return errors.New("trashed profile browser path is not a directory")
 	}
 	if err := os.Rename(trashed, profileDir); err != nil {
 		return fmt.Errorf("restore profile browser data: %w", err)

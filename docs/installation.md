@@ -7,6 +7,9 @@ ProfileWeave 是本地优先的浏览器 Profile 管理器。发布包只包含 
 
 ## 从 GitHub Release 安装
 
+> 当前尚无稳定 Release；以下步骤适用于首个 `v0.1.0` 或后续版本正式发布之后。
+> 在此之前请按“从源码构建”操作，不要把分支快照当作正式发行包。
+
 1. 在仓库 Releases 页面选择稳定版本。
 2. 按操作系统和架构下载归档：
    - Windows：`profileweave-vX.Y.Z-windows-amd64.zip` 或 `arm64.zip`
