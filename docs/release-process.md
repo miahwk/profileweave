@@ -49,7 +49,7 @@ pnpm --dir frontend audit --audit-level high
 go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 ```
 
-应用与 `govulncheck` v1.6.0 统一使用 Go 1.25 工具链；`go.mod`
+应用与 `govulncheck` v1.6.0 统一使用 Go 1.25.12 或更高的安全补丁工具链；`go.mod`
 是 CI 和 Release 的唯一工具链版本源。
 
 7. 合并后确认默认分支 CI 全绿，工作区无未提交变更。

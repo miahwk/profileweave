@@ -14,7 +14,7 @@ security boundaries.
 
 ## Development setup
 
-Install Go 1.25+, Node.js 22, and pnpm 11, then run:
+Install Go 1.25.12+, Node.js 22, and pnpm 11, then run:
 
 ```powershell
 pnpm --dir frontend install --frozen-lockfile

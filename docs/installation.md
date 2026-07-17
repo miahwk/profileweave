@@ -59,7 +59,7 @@ profileweave-vX.Y.Z-<os>-<arch>/
 
 ## 从源码构建
 
-要求：Go 1.25+、Node.js 22、pnpm 11 和 PowerShell 7（非 Windows 平台也需
+要求：Go 1.25.12+、Node.js 22、pnpm 11 和 PowerShell 7（非 Windows 平台也需
 `pwsh` 才能运行仓库脚本）。
 
 ```powershell

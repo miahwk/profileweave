@@ -25,7 +25,7 @@ ProfileWeave Browser 是一个使用 Vue 3 与 Go 构建的本地浏览器 Profi
 
 ## 快速开始
 
-开发环境要求 Go 1.25+、Node.js 22、pnpm 11，以及至少一个本机 Chromium 系浏览器。
+开发环境要求 Go 1.25.12+、Node.js 22、pnpm 11，以及至少一个本机 Chromium 系浏览器。
 
 ```powershell
 pnpm --dir frontend install --frozen-lockfile

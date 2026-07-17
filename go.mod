@@ -1,6 +1,6 @@
 module github.com/miahwk/profileweave
 
-go 1.25.0
+go 1.25.12
 
 require github.com/gofrs/flock v0.12.1
 
