@@ -1,0 +1,9 @@
+ProfileWeave
+Copyright 2026 ProfileWeave contributors
+
+This product includes third-party software. Required attribution and license
+information is provided in THIRD_PARTY_NOTICES.md.
+
+ProfileWeave release archives do not include a Chromium, Firefox, Camoufox,
+or other third-party browser binary. Users supply a compatible browser under
+that browser's own license and distribution terms.

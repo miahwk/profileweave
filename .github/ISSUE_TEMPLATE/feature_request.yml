@@ -1,0 +1,42 @@
+name: Feature request
+description: Propose an improvement for authorized QA, privacy research, or isolation
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Product boundaries
+      options:
+        - label: This request is for authorized QA, privacy research, or session isolation.
+          required: true
+        - label: This request does not add CAPTCHA solving, credential stuffing, account farming, or target-specific evasion.
+          required: true
+        - label: I searched existing issues and discussions.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the user problem without assuming a particular implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain the workflow and how unsupported or partial behavior should be shown honestly.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: risks
+    attributes:
+      label: Security, privacy, and compatibility impact
+      description: Note persistence changes, new permissions, dependencies, or browser-version assumptions.
+    validations:
+      required: true

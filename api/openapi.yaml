@@ -1,0 +1,376 @@
+openapi: 3.1.0
+info:
+  title: ProfileWeave Local API
+  version: 0.1.0
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+  description: >-
+    Loopback-only API for local browser profile isolation and process control.
+    It is not designed for LAN or public Internet exposure.
+servers:
+  - url: http://127.0.0.1:3210/api/v1
+security: []
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Read service health and build information
+      responses:
+        '200':
+          description: Healthy service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /bootstrap:
+    get:
+      operationId: getBootstrap
+      summary: Get the ephemeral control token for same-origin write requests
+      responses:
+        '200':
+          description: Per-process control token; never persist or log it
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [controlToken]
+                properties:
+                  controlToken: { type: string }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /capabilities:
+    get:
+      operationId: getCapabilities
+      summary: Discover browsers and runtime capabilities
+      responses:
+        '200':
+          description: Current capabilities
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [browsers, features]
+                properties:
+                  browsers:
+                    type: array
+                    items: { $ref: '#/components/schemas/BrowserDescriptor' }
+                  features:
+                    type: array
+                    items: { $ref: '#/components/schemas/FeatureCapability' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /profiles:
+    get:
+      operationId: listProfiles
+      summary: List profiles
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+      responses:
+        '200':
+          description: Profile list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Profile' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: createProfile
+      summary: Create a profile
+      security: [{ ControlToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfileInput' }
+      responses:
+        '201':
+          description: Created profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /profiles/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ProfileID'
+    get:
+      operationId: getProfile
+      summary: Get a profile
+      responses:
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      operationId: updateProfile
+      summary: Replace a profile using optimistic revision control
+      security: [{ ControlToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Profile' }
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      operationId: deleteProfile
+      summary: Delete profile metadata and move browser data to application trash
+      security: [{ ControlToken: [] }]
+      responses:
+        '204': { description: Deleted }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /profiles/{id}/duplicate:
+    post:
+      operationId: duplicateProfile
+      summary: Duplicate profile configuration with a new isolated data directory
+      security: [{ ControlToken: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ProfileID'
+      responses:
+        '201':
+          description: Duplicated profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /profiles/{id}/validate:
+    post:
+      operationId: validateProfile
+      summary: Evaluate profile coherence without launching
+      security: [{ ControlToken: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ProfileID'
+      responses:
+        '200':
+          description: Coherence report
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Report' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /profiles/{id}/launch:
+    post:
+      operationId: launchProfile
+      summary: Launch the selected local browser
+      security: [{ ControlToken: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ProfileID'
+      responses:
+        '200':
+          description: Active session
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /profiles/{id}/stop:
+    post:
+      operationId: stopProfile
+      summary: Stop a browser process owned by this service
+      security: [{ ControlToken: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ProfileID'
+      responses:
+        '200':
+          description: Stopped session
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /sessions:
+    get:
+      operationId: listSessions
+      summary: List current and recent in-memory sessions
+      responses:
+        '200':
+          description: Session list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Session' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+components:
+  securitySchemes:
+    ControlToken:
+      type: apiKey
+      in: header
+      name: X-ProfileWeave-Token
+  parameters:
+    ProfileID:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        pattern: '^p_[a-f0-9]{32}$'
+  responses:
+    Forbidden:
+      description: Host, Origin, Fetch Metadata, or control token rejected
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: Profile not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Conflict:
+      description: Revision or runtime state conflict
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    ValidationError:
+      description: Invalid or incoherent profile
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+  schemas:
+    Health:
+      type: object
+      required: [status, version, commit, date]
+      properties:
+        status: { type: string, const: ok }
+        version: { type: string }
+        commit: { type: string }
+        date: { type: string }
+    Browser:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string, enum: [auto, chrome, edge, brave, chromium, custom] }
+        customPath: { type: string }
+    Screen:
+      type: object
+      required: [width, height, dpr]
+      properties:
+        width: { type: integer }
+        height: { type: integer }
+        dpr: { type: number }
+    Fingerprint:
+      type: object
+      required: [os, uaMode, locale, languages, timezone, screen, cpuCores, memoryGB, webrtcPolicy]
+      properties:
+        os: { type: string }
+        uaMode: { type: string, enum: [native, custom] }
+        userAgent: { type: string }
+        locale: { type: string }
+        languages:
+          type: array
+          items: { type: string }
+        timezone: { type: string }
+        screen: { $ref: '#/components/schemas/Screen' }
+        cpuCores: { type: integer }
+        memoryGB: { type: integer }
+        webrtcPolicy: { type: string }
+    Proxy:
+      type: object
+      required: [mode]
+      properties:
+        mode: { type: string, enum: [direct, http, socks5] }
+        host: { type: string }
+        port: { type: integer, minimum: 1, maximum: 65535 }
+    ProfileInput:
+      type: object
+      additionalProperties: false
+      required: [name, tags, startURL, browser, fingerprint, proxy]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        notes: { type: string, maxLength: 2000 }
+        tags:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 32 }
+        startURL: { type: string }
+        browser: { $ref: '#/components/schemas/Browser' }
+        fingerprint: { $ref: '#/components/schemas/Fingerprint' }
+        proxy: { $ref: '#/components/schemas/Proxy' }
+    Profile:
+      allOf:
+        - $ref: '#/components/schemas/ProfileInput'
+        - type: object
+          required: [id, revision, createdAt, updatedAt]
+          properties:
+            id: { type: string }
+            revision: { type: integer, minimum: 1 }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    Session:
+      type: object
+      required: [profileId, status]
+      properties:
+        profileId: { type: string }
+        status: { type: string, enum: [starting, running, stopping, stopped, failed] }
+        pid: { type: integer }
+        startedAt: { type: string, format: date-time }
+        stoppedAt: { type: string, format: date-time }
+        lastError: { type: string }
+    BrowserDescriptor:
+      type: object
+      required: [id, name, available]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        path: { type: string }
+        available: { type: boolean }
+    FeatureCapability:
+      type: object
+      required: [key, label, status]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        status: { type: string, enum: [applied, partial, unsupported] }
+        detail: { type: string }
+    Issue:
+      type: object
+      required: [severity, field, code, message]
+      properties:
+        severity: { type: string, enum: [error, warning, info] }
+        field: { type: string }
+        code: { type: string }
+        message: { type: string }
+    Report:
+      type: object
+      required: [score, issues]
+      properties:
+        score: { type: integer, minimum: 0, maximum: 100 }
+        issues:
+          type: array
+          items: { $ref: '#/components/schemas/Issue' }
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field: { type: string }
+        message: { type: string }
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details:
+              type: array
+              items: { $ref: '#/components/schemas/FieldError' }

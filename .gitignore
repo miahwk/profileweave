@@ -1,0 +1,46 @@
+# Go build and test output
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage/
+coverage.*
+
+# Frontend dependencies and build output
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+.pnpm-store/
+*.tsbuildinfo
+/dist/
+/.cache/
+
+# Local agent scratch data
+.agents/
+
+# Local application data and secrets
+data/
+profiles/
+*.local
+.env
+.env.*
+!.env.example
+
+# Editor and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files and logs
+tmp/
+temp/
+*.log
+*.tmp
+*.swp
+*~

@@ -1,0 +1,82 @@
+name: Bug report
+description: Report a reproducible ProfileWeave defect
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve ProfileWeave. Never attach a real browser profile, cookies, credentials, proxy secrets, or browsing history. Security issues must use the private reporting link under the Security tab.
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Safety checks
+      options:
+        - label: I am using ProfileWeave for authorized QA, privacy research, or session isolation.
+          required: true
+        - label: I removed secrets and personal data from this report and its attachments.
+          required: true
+        - label: I searched open and closed issues for this problem.
+          required: true
+  - type: input
+    id: version
+    attributes:
+      label: ProfileWeave version
+      description: Use the release tag or commit SHA.
+      placeholder: v0.1.0 or 0123456789ab
+    validations:
+      required: true
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser runtime
+      description: Browser name, version, architecture, and whether it was auto-detected or selected manually.
+      placeholder: Chromium 128 x64, auto-detected
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Use a fresh synthetic profile where possible.
+      placeholder: |
+        1. Create a profile with ...
+        2. Select ...
+        3. Launch ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted diagnostics
+      description: Paste only logs or coherence warnings that contain no secrets, personal data, or private local paths.
+      render: text
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add screenshots only after checking them for sensitive information.
