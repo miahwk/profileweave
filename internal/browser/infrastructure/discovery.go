@@ -67,6 +67,9 @@ func validateExecutable(path string) error {
 	if !info.Mode().IsRegular() {
 		return errors.New("browser path must identify a regular file")
 	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
+		return errors.New("browser file is not executable")
+	}
 	return nil
 }
 

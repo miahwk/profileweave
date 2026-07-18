@@ -1,6 +1,7 @@
 import type {
   Capabilities,
   ConsistencyReport,
+  DoctorReport,
   Profile,
   ProfileDraft,
   Session,
@@ -117,6 +118,9 @@ export function createApi(fetcher: Fetcher = fetch) {
     },
     getCapabilities(): Promise<Capabilities> {
       return request(fetcher, `${base}/capabilities`)
+    },
+    getDoctor(): Promise<DoctorReport> {
+      return request(fetcher, `${base}/doctor`)
     },
   }
 }

@@ -88,10 +88,55 @@ export interface RuntimeCapability {
   detail?: string
 }
 
+export interface ProviderCapability {
+  id: string
+  name: string
+  status: CapabilityStatus
+  detail: string
+}
+
+export interface RuntimeProvider {
+  id: string
+  name: string
+  description: string
+  source: string
+  license: string
+  versionManagement: string
+  capabilities: ProviderCapability[]
+}
+
+export interface DoctorIssue {
+  code: string
+  severity: 'error' | 'warning' | 'info'
+  message: string
+  suggestion?: string
+}
+
+export interface DoctorReport {
+  provider: RuntimeProvider
+  healthy: boolean
+  inspectedBrowsers: number
+  availableBrowsers: number
+  activeSessions: number
+  browsers: BrowserCapability[]
+  issues: DoctorIssue[]
+}
+
 export interface Capabilities {
+  provider: RuntimeProvider
   browsers: BrowserCapability[]
   features: RuntimeCapability[]
 }
+
+export const emptyRuntimeProvider = (): RuntimeProvider => ({
+  id: 'unavailable',
+  name: 'Runtime unavailable',
+  description: 'Runtime metadata has not been loaded.',
+  source: 'not loaded',
+  license: 'not loaded',
+  versionManagement: 'not loaded',
+  capabilities: [],
+})
 
 export const defaultDraft = (): ProfileDraft => ({
   name: '',

@@ -135,6 +135,71 @@ func (s *Service) Discover(ctx context.Context) ([]domain.BrowserDescriptor, err
 	return s.runtime.Discover(ctx)
 }
 
+func (s *Service) RuntimeInfo() domain.ProviderInfo {
+	if provider, ok := s.runtime.(domain.Provider); ok {
+		info := provider.Info()
+		if info.Capabilities == nil {
+			info.Capabilities = make([]domain.ProviderCapability, 0)
+		}
+		return info
+	}
+	return domain.ProviderInfo{
+		ID: "custom-runtime", Name: "Custom runtime",
+		Description: "Runtime metadata is not available.",
+		Source:      "application integration", License: "not reported",
+		VersionManagement: "not reported",
+		Capabilities:      make([]domain.ProviderCapability, 0),
+	}
+}
+
+func (s *Service) Doctor(ctx context.Context) (domain.DoctorReport, error) {
+	report := domain.DoctorReport{
+		Provider: s.RuntimeInfo(),
+		Healthy:  true,
+		Browsers: make([]domain.BrowserDescriptor, 0),
+		Issues:   make([]domain.DoctorIssue, 0),
+	}
+	for _, session := range s.List() {
+		if active(session.Status) {
+			report.ActiveSessions++
+		}
+	}
+	browsers, err := s.runtime.Discover(ctx)
+	if err != nil {
+		if ctx.Err() != nil {
+			return report, ctx.Err()
+		}
+		report.Healthy = false
+		report.Issues = append(report.Issues, domain.DoctorIssue{
+			Code: "browser_discovery_failed", Severity: "error",
+			Message:    "Installed browsers could not be inspected.",
+			Suggestion: "Check local browser installation permissions and retry.",
+		})
+		return report, nil
+	}
+	if browsers == nil {
+		browsers = make([]domain.BrowserDescriptor, 0)
+	}
+	report.Browsers = make([]domain.BrowserDescriptor, 0, len(browsers))
+	report.InspectedBrowsers = len(browsers)
+	for _, browser := range browsers {
+		if browser.Available {
+			report.AvailableBrowsers++
+		}
+		browser.Path = ""
+		report.Browsers = append(report.Browsers, browser)
+	}
+	if report.AvailableBrowsers == 0 {
+		report.Healthy = false
+		report.Issues = append(report.Issues, domain.DoctorIssue{
+			Code: "no_browser_available", Severity: "error",
+			Message:    "No supported local Chromium browser was found.",
+			Suggestion: "Install Chrome, Edge, Brave, or Chromium, or configure an absolute custom browser path.",
+		})
+	}
+	return report, nil
+}
+
 func (s *Service) observe(profileID string, done <-chan error) {
 	err, ok := <-done
 	s.mu.Lock()

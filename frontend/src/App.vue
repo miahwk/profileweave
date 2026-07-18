@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import CapabilityPanel from '@/components/CapabilityPanel.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import DoctorPanel from '@/components/DoctorPanel.vue'
 import MetricTile from '@/components/MetricTile.vue'
 import ProfileCard from '@/components/ProfileCard.vue'
 import ProfileEditor from '@/components/ProfileEditor.vue'
@@ -11,12 +12,14 @@ import type { Profile, TrashItem } from '@/domain/profile'
 
 const manager = useProfileManager()
 const {
-  profiles, trash, capabilities, reports, search, loading, loadError, notice, editorOpen, editingProfile,
+  profiles, trash, capabilities, reports, doctor, doctorLoading, doctorError,
+  search, loading, loadError, notice, editorOpen, editingProfile,
   draft, actionIds, filteredProfiles, sessionByProfile, runningCount, featureCoverage, draftReport, draftHasErrors,
 } = manager
 const deleteTarget = ref<Profile | null>(null)
 const purgeTarget = ref<TrashItem | null>(null)
 const trashOpen = ref(false)
+const doctorOpen = ref(false)
 let sessionTimer: number | undefined
 
 const availableBrowserCount = computed(() => capabilities.value.browsers.filter((item) => item.available).length)
@@ -35,6 +38,11 @@ async function confirmPurge() {
   purgeTarget.value = null
 }
 
+function openDoctor() {
+  doctorOpen.value = true
+  if (!doctor.value) void manager.runDoctor()
+}
+
 onMounted(() => {
   void manager.load()
   sessionTimer = window.setInterval(() => void manager.refreshSessions(), 6000)
@@ -50,8 +58,11 @@ onBeforeUnmount(() => { if (sessionTimer !== undefined) window.clearInterval(ses
         <span><b>ProfileWeave</b><small>Local Browser Runtime</small></span>
       </a>
       <div class="topbar__meta"><span class="endpoint"><i aria-hidden="true"></i>127.0.0.1 · 本地服务</span><span class="divider"></span><span class="boundary">授权 QA · 隐私研究 · 会话隔离</span></div>
-      <button class="button button--quiet" type="button" @click="trashOpen = true">回收站 <span v-if="trash.length">{{ trash.length }}</span></button>
-      <button class="button button--primary topbar__create" type="button" @click="manager.create"><span aria-hidden="true">＋</span>新建 Profile</button>
+      <div class="topbar__actions">
+        <button class="button button--quiet" type="button" aria-label="运行诊断" @click="openDoctor"><span class="topbar__icon" aria-hidden="true">◎</span><span class="topbar__label">运行诊断</span></button>
+        <button class="button button--quiet" type="button" aria-label="回收站" @click="trashOpen = true"><span class="topbar__icon" aria-hidden="true">♲</span><span class="topbar__label">回收站</span> <span v-if="trash.length" class="topbar__count">{{ trash.length }}</span></button>
+        <button class="button button--primary topbar__create" type="button" @click="manager.create"><span aria-hidden="true">＋</span>新建 Profile</button>
+      </div>
     </header>
 
     <main id="main" class="main-content">
@@ -108,6 +119,8 @@ onBeforeUnmount(() => { if (sessionTimer !== undefined) window.clearInterval(ses
     <ProfileEditor v-model="draft" :open="editorOpen" :title="editorTitle" :report="draftReport" :has-errors="draftHasErrors"
       :browsers="capabilities.browsers" :saving="actionIds.has(editingProfile?.id ?? 'create')" @close="manager.closeEditor" @save="manager.save" />
     <RecycleBin :open="trashOpen" :items="trash" :busy-ids="actionIds" @close="trashOpen = false" @restore="manager.restore" @purge="purgeTarget = $event" />
+    <DoctorPanel :open="doctorOpen" :report="doctor" :loading="doctorLoading" :error="doctorError"
+      @close="doctorOpen = false" @run="manager.runDoctor" />
     <ConfirmDialog :open="Boolean(deleteTarget)" title="移入回收站？" :description="`“${deleteTarget?.name ?? ''}”的配置与浏览器数据会移入本地回收站，之后仍可恢复；运行中必须先停止。`"
       :busy="Boolean(deleteTarget && actionIds.has(deleteTarget.id))" @cancel="deleteTarget = null" @confirm="confirmDelete" />
     <ConfirmDialog :open="Boolean(purgeTarget)" title="永久删除？" :description="`“${purgeTarget?.profile.name ?? ''}”的配置与回收站内浏览器数据将被永久删除，此操作不可撤销。`"

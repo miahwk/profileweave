@@ -61,7 +61,7 @@ Donut 已覆盖 groups、批量设置、多协议代理、cookie/扩展/profile 
 | Groups/批量操作 | 规划中 | 是 | 有限 | 否 | 否 | 否 |
 | 原生内核处理 | 未捆绑 | Wayfern，需另审 | 默认无 | fully-open Firefox patch | 专有核心 | 无 |
 | 一致性诊断 | 已实现规则集 | 有 | 非核心 | 有 | 有 | 强项 |
-| REST/CLI/MCP | REST | REST/MCP | HTTP/CLI/MCP | Playwright | CDP/自动化 wrapper | 库 API |
+| REST/CLI/MCP | REST + doctor | REST/MCP | HTTP/CLI/MCP | Playwright | CDP/自动化 wrapper | 库 API |
 | Cookie/扩展导入导出 | 规划中 | 是 | 基础持久化 | 调用方负责 | context 负责 | 调用方负责 |
 | 同步/团队 | 未实现 | 自托管/E2E | 无 | 无 | 无 | 无 |
 | 完整开放内核 | 不捆绑内核 | 未证实 | 不包含内核 | 是 | 否 | 不适用 |
@@ -78,10 +78,10 @@ Donut 已覆盖 groups、批量设置、多协议代理、cookie/扩展/profile 
 
 ### P1：达到同类产品核心价值
 
-- runtime provider 模型及来源/版本/许可证/能力展示。
+- runtime provider 模型及来源/版本管理/许可证/能力展示（基础层已完成）。
 - groups、tags 与批量启动/停止/代理修改。
 - profile、cookie、扩展导入导出。
-- proxy connectivity test、启动日志、doctor 和 crash reconciliation。
+- doctor 与本地 Web API 自检（已完成）；proxy connectivity test、启动日志和 crash reconciliation（待实现）。
 - Camoufox 固定版本适配器与兼容矩阵；CloakBrowser 仅 BYO。
 
 ### P2：稳定后评估

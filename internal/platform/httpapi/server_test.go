@@ -117,6 +117,17 @@ type fakeRuntime struct {
 	started map[string]chan error
 }
 
+func (*fakeRuntime) Info() browserdomain.ProviderInfo {
+	return browserdomain.ProviderInfo{
+		ID: "test-runtime", Name: "Test runtime", Description: "HTTP adapter test runtime",
+		Source: "test fixture", License: "test-only", VersionManagement: "fixed",
+		Capabilities: []browserdomain.ProviderCapability{
+			{ID: "profile-isolation", Name: "Profile isolation", Status: browserdomain.CapabilityApplied, Detail: "Test data directories are separate."},
+			{ID: "timezone", Name: "Timezone", Status: browserdomain.CapabilityUnsupported, Detail: "Not applied by the test runtime."},
+		},
+	}
+}
+
 func (f *fakeRuntime) Discover(context.Context) ([]browserdomain.BrowserDescriptor, error) {
 	return []browserdomain.BrowserDescriptor{{ID: "chrome", Name: "Chrome", Path: "C:/Chrome/chrome.exe", Available: true}}, nil
 }

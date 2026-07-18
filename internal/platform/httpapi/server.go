@@ -36,6 +36,7 @@ func newAPI(profiles *profileapp.Service, browsers *browserapp.Service, token st
 	mux.HandleFunc("GET /api/v1/bootstrap", api.bootstrap)
 	mux.HandleFunc("GET /api/v1/capabilities", api.capabilities)
 	mux.HandleFunc("GET /api/v1/runtime/capabilities", api.capabilities)
+	mux.HandleFunc("GET /api/v1/doctor", api.doctor)
 	mux.HandleFunc("GET /api/v1/profiles", api.listProfiles)
 	mux.HandleFunc("POST /api/v1/profiles", api.createProfile)
 	mux.HandleFunc("GET /api/v1/profiles/{id}", api.getProfile)
@@ -162,43 +163,6 @@ func (a *API) stopProfile(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) listSessions(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, listResponse[domain.Session]{Items: a.browsers.List()})
-}
-
-func (a *API) capabilities(w http.ResponseWriter, r *http.Request) {
-	browsers, err := a.browsers.Discover(r.Context())
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, capabilityResponse{Browsers: browsers, Features: featureCapabilities()})
-}
-
-type featureCapability struct {
-	Key    string `json:"key"`
-	Label  string `json:"label"`
-	Status string `json:"status"`
-	Detail string `json:"detail,omitempty"`
-}
-
-type capabilityResponse struct {
-	Browsers []domain.BrowserDescriptor `json:"browsers"`
-	Features []featureCapability        `json:"features"`
-}
-
-func featureCapabilities() []featureCapability {
-	return []featureCapability{
-		{"profileIsolation", "Separate user data directory", "applied", "Cookies, cache, and site storage are isolated per profile."},
-		{"os", "Operating system target", "unsupported", "Saved for consistency diagnostics; the native host OS is retained."},
-		{"locale", "Locale", "partial", "Chromium --lang is applied; final behavior depends on the browser."},
-		{"languages", "Language preferences", "unsupported", "Saved for diagnostics but not written to browser preferences by the MVP runtime."},
-		{"proxy", "HTTP and SOCKS5 proxy", "partial", "Applies to Chromium traffic and is not a system VPN."},
-		{"webrtc", "WebRTC proxy policy", "partial", "Reduces non-proxied UDP but cannot guarantee identical behavior in every version."},
-		{"display", "Window size and DPR", "partial", "Window managers can adjust the requested values."},
-		{"customUA", "Custom user agent", "partial", "Does not synchronize Client Hints or TLS."},
-		{"timezone", "Timezone override", "unsupported", "Saved and diagnosed but not applied by the MVP runtime."},
-		{"hardware", "CPU and device memory", "unsupported", "Expected values only; no JavaScript injection is used."},
-		{"surfaceSpoofing", "Canvas, WebGL, and audio spoofing", "unsupported", "Native browser behavior is retained."},
-	}
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, target any) error {

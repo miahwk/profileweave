@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { ApiError, api as defaultApi, type ProfileApi } from '@/api/client'
 import { evaluateDraft } from '@/domain/evaluate'
-import { defaultDraft, toDraft, type Capabilities, type ConsistencyReport, type Profile, type ProfileDraft, type Session, type TrashItem } from '@/domain/profile'
+import { defaultDraft, emptyRuntimeProvider, toDraft, type Capabilities, type ConsistencyReport, type DoctorReport, type Profile, type ProfileDraft, type Session, type TrashItem } from '@/domain/profile'
 
 function messageFrom(error: unknown): string {
   if (error instanceof ApiError) {
@@ -15,8 +15,11 @@ export function useProfileManager(service: ProfileApi = defaultApi) {
   const profiles = ref<Profile[]>([])
   const trash = ref<TrashItem[]>([])
   const sessions = ref<Session[]>([])
-  const capabilities = ref<Capabilities>({ browsers: [], features: [] })
+  const capabilities = ref<Capabilities>({ provider: emptyRuntimeProvider(), browsers: [], features: [] })
   const reports = ref<Record<string, ConsistencyReport>>({})
+  const doctor = ref<DoctorReport | null>(null)
+  const doctorLoading = ref(false)
+  const doctorError = ref('')
   const search = ref('')
   const loading = ref(true)
   const loadError = ref('')
@@ -82,6 +85,18 @@ export function useProfileManager(service: ProfileApi = defaultApi) {
       sessions.value = await service.listSessions()
     } catch {
       // Background refresh failures stay quiet; the next user action still surfaces its own error.
+    }
+  }
+  async function runDoctor() {
+    doctorLoading.value = true
+    doctorError.value = ''
+    try {
+      doctor.value = await service.getDoctor()
+    } catch (error) {
+      doctor.value = null
+      doctorError.value = messageFrom(error)
+    } finally {
+      doctorLoading.value = false
     }
   }
   function create() {
@@ -180,8 +195,9 @@ export function useProfileManager(service: ProfileApi = defaultApi) {
   }
 
   return {
-    profiles, trash, sessions, capabilities, reports, search, loading, loadError, notice, editorOpen, editingProfile,
+    profiles, trash, sessions, capabilities, reports, doctor, doctorLoading, doctorError,
+    search, loading, loadError, notice, editorOpen, editingProfile,
     draft, actionIds, filteredProfiles, sessionByProfile, runningCount, featureCoverage, draftReport, draftHasErrors,
-    load, refreshSessions, create, edit, closeEditor, save, duplicate, remove, restore, purge, launch, stop,
+    load, refreshSessions, runDoctor, create, edit, closeEditor, save, duplicate, remove, restore, purge, launch, stop,
   }
 }

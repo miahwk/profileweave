@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError, createApi } from './client'
-import { defaultDraft } from '@/domain/profile'
+import { defaultDraft, type DoctorReport } from '@/domain/profile'
 
 function response(body: unknown, status = 200): Response {
   return new Response(body === undefined ? undefined : JSON.stringify(body), {
@@ -64,5 +64,21 @@ describe('profile API adapter', () => {
     ])
     expect(fetcher.mock.calls[3]?.[0]).toBe('/api/v1/trash/p_one')
     expect(fetcher.mock.calls[3]?.[1]?.method).toBe('DELETE')
+  })
+
+  it('reads the runtime doctor report from the public local endpoint', async () => {
+    const payload = {
+      provider: {
+        id: 'system-chromium', name: 'System Chromium', description: 'Fixture',
+        source: 'host-installed browser', license: 'browser-specific', versionManagement: 'host-managed', capabilities: [],
+      }, healthy: true,
+      inspectedBrowsers: 1, availableBrowsers: 1, activeSessions: 0, browsers: [], issues: [],
+    } satisfies DoctorReport
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(response(payload))
+
+    expect(await createApi(fetcher).getDoctor()).toEqual(payload)
+    expect(fetcher).toHaveBeenCalledWith('/api/v1/doctor', expect.objectContaining({
+      headers: expect.objectContaining({ Accept: 'application/json' }),
+    }))
   })
 })

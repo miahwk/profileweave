@@ -12,6 +12,7 @@ ProfileWeave Browser 是一个使用 Vue 3 与 Go 构建的本地浏览器 Profi
 - direct、HTTP、SOCKS5 无认证代理，以及限制非代理 WebRTC UDP 的隐私策略。
 - OS/UA、locale/languages、IANA timezone、screen/DPR、CPU/内存意图、proxy/WebRTC 一致性评分。
 - “已应用 / 部分应用 / 未支持”的运行时能力矩阵，不把已保存配置误报为内核能力。
+- 可替换 Runtime Provider 元数据、`doctor` 本机诊断和 `/self-check` 浏览器实际环境自检页。
 - 本地 JSON 原子持久化、loopback API、随机写操作令牌、Host/Origin 防护、安全 argv 启动。
 - Vue 响应式管理台、Go/TypeScript 测试、CI 和源文件行数守卫。
 
@@ -92,7 +93,7 @@ ProfileWeave/
 
 API 前缀为 `/api/v1`：
 
-- `GET /health`、`GET /capabilities`
+- `GET /health`、`GET /capabilities`、`GET /doctor`
 - `GET /bootstrap`（取得本进程临时写操作令牌）
 - `GET|POST /profiles`
 - `GET|PUT|DELETE /profiles/{id}`

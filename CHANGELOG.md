@@ -27,6 +27,13 @@ published yet.
 - Recoverable profile deletion with recycle-bin listing, restoration, explicit
   permanent purge, and browser-data rollback on metadata failures.
 - Deterministic Chinese, English, and European desktop configuration templates.
+- Replaceable runtime-provider metadata with provenance, license, version
+  management, and observable capability boundaries.
+- Local runtime doctor API and management-console diagnostics panel.
+- A `/self-check` page for inspecting the browser environment actually exposed
+  through standard Web APIs, plus a one-click editor start-page preset.
+- Frontend profile-manager state tests covering partial loads, lifecycle
+  actions, recoverable deletion, runtime diagnostics, and busy-state cleanup.
 
 ### Changed
 
@@ -35,6 +42,8 @@ published yet.
 - Profile deletion now moves browser data to an application trash directory
   and rolls it back if metadata deletion fails.
 - Build metadata is exposed consistently through `--version` and `/health`.
+- The capability endpoint now derives feature status from the active runtime
+  provider instead of a second hard-coded capability table.
 
 ### Security
 
@@ -45,3 +54,5 @@ published yet.
 - Session errors no longer expose browser paths, proxy values, URLs, or argv.
 - OS target and language preferences are now reported honestly as diagnostic-only
   capabilities; browser launch failures are visible in the profile card.
+- Doctor responses normalize all required collections, hide browser executable
+  paths, and the diagnostics dialog traps/restores keyboard focus.

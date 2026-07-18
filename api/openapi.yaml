@@ -50,14 +50,29 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [browsers, features]
+                required: [provider, browsers, features]
                 properties:
+                  provider: { $ref: '#/components/schemas/RuntimeProvider' }
                   browsers:
                     type: array
                     items: { $ref: '#/components/schemas/BrowserDescriptor' }
                   features:
                     type: array
                     items: { $ref: '#/components/schemas/FeatureCapability' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /doctor:
+    get:
+      operationId: getDoctor
+      summary: Diagnose the local runtime provider and browser availability
+      description: >-
+        Returns safe, structured diagnostics. Provider capabilities describe
+        observable support and do not imply that a browser is undetectable.
+      responses:
+        '200':
+          description: Current local runtime diagnostics
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DoctorReport' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /profiles:
     get:
@@ -395,6 +410,53 @@ components:
         label: { type: string }
         status: { type: string, enum: [applied, partial, unsupported] }
         detail: { type: string }
+    ProviderCapability:
+      type: object
+      required: [id, name, status, detail]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        status: { type: string, enum: [applied, partial, unsupported] }
+        detail: { type: string }
+    RuntimeProvider:
+      type: object
+      required: [id, name, description, source, license, versionManagement, capabilities]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        source: { type: string }
+        license: { type: string }
+        versionManagement: { type: string }
+        capabilities:
+          type: array
+          items: { $ref: '#/components/schemas/ProviderCapability' }
+    DoctorIssue:
+      type: object
+      required: [code, severity, message]
+      properties:
+        code: { type: string }
+        severity: { type: string, enum: [error, warning, info] }
+        message: { type: string }
+        suggestion: { type: string }
+    DoctorReport:
+      type: object
+      required: [provider, healthy, inspectedBrowsers, availableBrowsers, activeSessions, browsers, issues]
+      properties:
+        provider: { $ref: '#/components/schemas/RuntimeProvider' }
+        healthy: { type: boolean }
+        inspectedBrowsers:
+          type: integer
+          minimum: 0
+          description: Number of supported browser descriptors inspected on this host
+        availableBrowsers: { type: integer, minimum: 0 }
+        activeSessions: { type: integer, minimum: 0 }
+        browsers:
+          type: array
+          items: { $ref: '#/components/schemas/BrowserDescriptor' }
+        issues:
+          type: array
+          items: { $ref: '#/components/schemas/DoctorIssue' }
     Issue:
       type: object
       required: [severity, field, code, message]
