@@ -48,6 +48,8 @@ func writeError(w http.ResponseWriter, err error) {
 		writeAPIError(w, http.StatusConflict, "session_conflict", "profile already has an active browser session", nil)
 	case errors.Is(err, browserapp.ErrNotRunning):
 		writeAPIError(w, http.StatusConflict, "session_not_running", "profile has no active browser session", nil)
+	case errors.Is(err, browserapp.ErrShuttingDown):
+		writeAPIError(w, http.StatusConflict, "application_shutting_down", "application is shutting down", nil)
 	case errors.Is(err, browserapp.ErrInvalidProfile):
 		writeAPIError(w, http.StatusUnprocessableEntity, "profile_invalid", "profile has blocking consistency errors", nil)
 	default:

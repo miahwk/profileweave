@@ -39,6 +39,30 @@ paths:
                 properties:
                   controlToken: { type: string }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /shutdown:
+    post:
+      operationId: shutdownApplication
+      summary: Gracefully stop the local application and its managed sessions
+      description: >-
+        Requests process shutdown after the response is sent. This endpoint is
+        loopback-only and requires the current process control token.
+      security: [{ ControlToken: [] }]
+      responses:
+        '202':
+          description: Shutdown accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, const: shutting_down }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '501':
+          description: This embedding does not expose application shutdown
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /capabilities:
     get:
       operationId: getCapabilities
@@ -110,6 +134,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Profile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/ValidationError' }
   /profiles/{id}:
     parameters:
@@ -132,13 +158,16 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/Profile' }
+            schema: { $ref: '#/components/schemas/ProfileUpdate' }
       responses:
         '200':
           description: Updated profile
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Profile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
     delete:
@@ -147,6 +176,7 @@ paths:
       security: [{ ControlToken: [] }]
       responses:
         '204': { description: Deleted }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
   /profiles/{id}/duplicate:
@@ -162,6 +192,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Profile' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /profiles/{id}/validate:
     post:
@@ -176,6 +207,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Report' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /profiles/{id}/launch:
     post:
@@ -190,6 +222,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Session' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
   /profiles/{id}/stop:
@@ -205,6 +239,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Session' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
   /sessions:
     get:
@@ -249,6 +284,7 @@ paths:
       security: [{ ControlToken: [] }]
       responses:
         '204': { description: Permanently deleted }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/TrashNotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
   /trash/{id}/restore:
@@ -264,6 +300,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Profile' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/TrashNotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 components:
@@ -281,6 +318,11 @@ components:
         type: string
         pattern: '^p_[a-f0-9]{32}$'
   responses:
+    BadRequest:
+      description: Request body is invalid JSON or contains unknown fields
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
     Forbidden:
       description: Host, Origin, Fetch Metadata, or control token rejected
       content:
@@ -309,9 +351,10 @@ components:
   schemas:
     Health:
       type: object
-      required: [status, version, commit, date]
+      required: [status, product, version, commit, date]
       properties:
         status: { type: string, const: ok }
+        product: { type: string, const: ProfileWeave }
         version: { type: string }
         commit: { type: string }
         date: { type: string }
@@ -366,16 +409,47 @@ components:
         browser: { $ref: '#/components/schemas/Browser' }
         fingerprint: { $ref: '#/components/schemas/Fingerprint' }
         proxy: { $ref: '#/components/schemas/Proxy' }
+    ProfileUpdate:
+      type: object
+      additionalProperties: false
+      required: [revision, name, tags, startURL, browser, fingerprint, proxy]
+      properties:
+        id:
+          type: string
+          pattern: '^p_[a-f0-9]{32}$'
+          description: Optional in the body; when present it must match the route ID
+        revision: { type: integer, minimum: 1 }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        notes: { type: string, maxLength: 2000 }
+        tags:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 32 }
+        startURL: { type: string }
+        browser: { $ref: '#/components/schemas/Browser' }
+        fingerprint: { $ref: '#/components/schemas/Fingerprint' }
+        proxy: { $ref: '#/components/schemas/Proxy' }
     Profile:
-      allOf:
-        - $ref: '#/components/schemas/ProfileInput'
-        - type: object
-          required: [id, revision, createdAt, updatedAt]
-          properties:
-            id: { type: string }
-            revision: { type: integer, minimum: 1 }
-            createdAt: { type: string, format: date-time }
-            updatedAt: { type: string, format: date-time }
+      type: object
+      additionalProperties: false
+      required: [id, revision, createdAt, updatedAt, name, tags, startURL, browser, fingerprint, proxy]
+      properties:
+        id:
+          type: string
+          pattern: '^p_[a-f0-9]{32}$'
+        revision: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        notes: { type: string, maxLength: 2000 }
+        tags:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 32 }
+        startURL: { type: string }
+        browser: { $ref: '#/components/schemas/Browser' }
+        fingerprint: { $ref: '#/components/schemas/Fingerprint' }
+        proxy: { $ref: '#/components/schemas/Proxy' }
     TrashItem:
       type: object
       additionalProperties: false

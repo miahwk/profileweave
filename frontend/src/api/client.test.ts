@@ -10,6 +10,16 @@ function response(body: unknown, status = 200): Response {
 }
 
 describe('profile API adapter', () => {
+  it('reads the public health endpoint for lifecycle confirmation', async () => {
+    const payload = { status: 'ok', product: 'ProfileWeave', version: 'test', commit: 'test', date: 'test' } as const
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(response(payload))
+
+    await expect(createApi(fetcher).getHealth()).resolves.toEqual(payload)
+    expect(fetcher).toHaveBeenCalledWith('/api/v1/health', expect.objectContaining({
+      headers: expect.objectContaining({ Accept: 'application/json' }),
+    }))
+  })
+
   it('unwraps list envelopes from the HTTP contract', async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(response({ items: [{ id: 'p_one', name: 'QA' }] }))
     const profiles = await createApi(fetcher).listProfiles()
@@ -80,5 +90,22 @@ describe('profile API adapter', () => {
     expect(fetcher).toHaveBeenCalledWith('/api/v1/doctor', expect.objectContaining({
       headers: expect.objectContaining({ Accept: 'application/json' }),
     }))
+  })
+
+  it('uses the local control token to request an application shutdown', async () => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ controlToken: 'shutdown-token' }))
+      .mockResolvedValueOnce(response({ status: 'shutting_down' }, 202))
+
+    await expect(createApi(fetcher).shutdown()).resolves.toEqual({ status: 'shutting_down' })
+
+    expect(fetcher.mock.calls[0]?.[0]).toBe('/api/v1/bootstrap')
+    expect(fetcher.mock.calls[1]).toEqual([
+      '/api/v1/shutdown',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'X-ProfileWeave-Token': 'shutdown-token' }),
+      }),
+    ])
   })
 })

@@ -21,6 +21,15 @@ func (a *API) bootstrap(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"controlToken": a.controlToken})
 }
 
+func (a *API) requestShutdown(w http.ResponseWriter, _ *http.Request) {
+	if a.shutdown == nil {
+		writeAPIError(w, http.StatusNotImplemented, "shutdown_unavailable", "application shutdown is unavailable", nil)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "shutting_down"})
+	a.shutdown()
+}
+
 func requireControlToken(next http.Handler, expected string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {

@@ -13,6 +13,18 @@ export interface ApiErrorDetail {
   message: string
 }
 
+export interface ShutdownResponse {
+  status: 'shutting_down'
+}
+
+export interface HealthResponse {
+  status: 'ok'
+  product: 'ProfileWeave'
+  version: string
+  commit: string
+  date: string
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -78,6 +90,9 @@ export function createApi(fetcher: Fetcher = fetch) {
   }
 
   return {
+    getHealth(): Promise<HealthResponse> {
+      return request(fetcher, `${base}/health`)
+    },
     async listProfiles(): Promise<Profile[]> {
       return arrayFrom(await request<Profile[] | { items: Profile[] }>(fetcher, `${base}/profiles`))
     },
@@ -121,6 +136,9 @@ export function createApi(fetcher: Fetcher = fetch) {
     },
     getDoctor(): Promise<DoctorReport> {
       return request(fetcher, `${base}/doctor`)
+    },
+    shutdown(): Promise<ShutdownResponse> {
+      return mutate(`${base}/shutdown`, { method: 'POST' })
     },
   }
 }

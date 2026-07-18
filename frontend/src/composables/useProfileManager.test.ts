@@ -62,6 +62,7 @@ function fakeApi(overrides: Partial<ProfileApi> = {}): ProfileApi {
     stopProfile: vi.fn(async (id) => ({ profileId: id, status: 'stopped' as const })),
     getCapabilities: vi.fn(async () => ({ provider: emptyRuntimeProvider(), browsers: [], features: [] })),
     getDoctor: vi.fn(async () => doctor),
+    shutdown: vi.fn(async () => undefined),
     ...overrides,
   }
 }

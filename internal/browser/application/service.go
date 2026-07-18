@@ -16,6 +16,7 @@ var (
 	ErrAlreadyRunning = errors.New("profile is already running")
 	ErrNotRunning     = errors.New("profile is not running")
 	ErrInvalidProfile = errors.New("profile has blocking consistency errors")
+	ErrShuttingDown   = errors.New("browser service is shutting down")
 )
 
 type ProfileReader interface {
@@ -28,6 +29,7 @@ type Service struct {
 	profiles    ProfileReader
 	runtime     domain.Runtime
 	sessions    map[string]domain.Session
+	closing     bool
 	now         func() time.Time
 }
 
@@ -47,6 +49,14 @@ func (s *Service) IsRunning(profileID string) bool {
 func (s *Service) LockProfile(_ string) func() {
 	s.lifecycleMu.Lock()
 	return s.lifecycleMu.Unlock
+}
+
+// BeginShutdown waits for the current lifecycle transition and prevents any
+// later browser launch from escaping the shutdown session snapshot.
+func (s *Service) BeginShutdown() {
+	s.lifecycleMu.Lock()
+	s.closing = true
+	s.lifecycleMu.Unlock()
 }
 
 func (s *Service) List() []domain.Session {
@@ -71,6 +81,9 @@ func (s *Service) List() []domain.Session {
 func (s *Service) Launch(ctx context.Context, profileID string) (domain.Session, error) {
 	unlock := s.LockProfile(profileID)
 	defer unlock()
+	if s.closing {
+		return domain.Session{}, ErrShuttingDown
+	}
 
 	profile, err := s.profiles.Get(ctx, profileID)
 	if err != nil {

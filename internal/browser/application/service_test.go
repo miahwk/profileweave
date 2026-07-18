@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/miahwk/profileweave/internal/browser/domain"
 	fingerprint "github.com/miahwk/profileweave/internal/fingerprint/domain"
@@ -141,6 +142,34 @@ func TestStopFailureRemainsActiveUntilExitIsConfirmed(t *testing.T) {
 	}
 	if session.StoppedAt != nil || strings.Contains(session.LastError, "alice") {
 		t.Fatalf("failed stop exposed sensitive data or claimed exit: %#v", session)
+	}
+}
+
+func TestBeginShutdownWaitsForLifecycleAndRejectsLaterLaunch(t *testing.T) {
+	service := NewService(failingProfileReader{}, failingRuntime{})
+	unlock := service.LockProfile("blocked")
+	started := make(chan struct{})
+	finished := make(chan struct{})
+	go func() {
+		close(started)
+		service.BeginShutdown()
+		close(finished)
+	}()
+	<-started
+	select {
+	case <-finished:
+		t.Fatal("shutdown gate did not wait for the active lifecycle transition")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	unlock()
+	select {
+	case <-finished:
+	case <-time.After(time.Second):
+		t.Fatal("shutdown gate did not finish after lifecycle release")
+	}
+	if _, err := service.Launch(context.Background(), "blocked"); !errors.Is(err, ErrShuttingDown) {
+		t.Fatalf("launch after shutdown gate = %v, want ErrShuttingDown", err)
 	}
 }
 

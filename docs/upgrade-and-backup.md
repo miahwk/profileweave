@@ -41,6 +41,12 @@ Get-FileHash -LiteralPath $destination -Algorithm SHA256
 
 ## 升级步骤
 
+使用 Windows 安装器时，确认所有 Profile 已停止并完成备份，然后运行同一架构的新
+setup。固定 AppId 与安装目录会执行覆盖升级，`%APPDATA%\ProfileWeave` 不参与安装器
+删除。升级后仍需检查 Profile 数量并用非敏感测试 Profile 完成启动/停止验证。
+
+使用便携归档时：
+
 1. 阅读 `CHANGELOG.md` 和目标版本的 Release Notes，特别关注存储 schema、浏览器
    参数和环境变量变化。
 2. 完成离线备份并记录哈希。

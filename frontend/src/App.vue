@@ -7,6 +7,7 @@ import MetricTile from '@/components/MetricTile.vue'
 import ProfileCard from '@/components/ProfileCard.vue'
 import ProfileEditor from '@/components/ProfileEditor.vue'
 import RecycleBin from '@/components/RecycleBin.vue'
+import { useAppShutdown } from '@/composables/useAppShutdown'
 import { useProfileManager } from '@/composables/useProfileManager'
 import type { Profile, TrashItem } from '@/domain/profile'
 
@@ -20,6 +21,7 @@ const deleteTarget = ref<Profile | null>(null)
 const purgeTarget = ref<TrashItem | null>(null)
 const trashOpen = ref(false)
 const doctorOpen = ref(false)
+const shutdown = useAppShutdown()
 let sessionTimer: number | undefined
 
 const availableBrowserCount = computed(() => capabilities.value.browsers.filter((item) => item.available).length)
@@ -38,6 +40,13 @@ async function confirmPurge() {
   purgeTarget.value = null
 }
 
+async function confirmShutdown() {
+  if (await shutdown.confirm() && sessionTimer !== undefined) {
+    window.clearInterval(sessionTimer)
+    sessionTimer = undefined
+  }
+}
+
 function openDoctor() {
   doctorOpen.value = true
   if (!doctor.value) void manager.runDoctor()
@@ -51,7 +60,13 @@ onBeforeUnmount(() => { if (sessionTimer !== undefined) window.clearInterval(ses
 </script>
 
 <template>
-  <div class="app-shell">
+  <main v-if="shutdown.stopped.value" class="shutdown-screen" role="status" aria-live="polite">
+    <span class="shutdown-screen__mark" aria-hidden="true">P</span>
+    <span class="eyebrow">Local service stopped</span>
+    <h1>ProfileWeave 已退出</h1>
+    <p>本地服务与受管浏览器会话已经关闭。现在可以安全关闭此页面。</p>
+  </main>
+  <div v-else class="app-shell">
     <header class="topbar">
       <a class="brand" href="#main" aria-label="ProfileWeave 首页">
         <span class="brand__mark" aria-hidden="true">P</span>
@@ -59,6 +74,7 @@ onBeforeUnmount(() => { if (sessionTimer !== undefined) window.clearInterval(ses
       </a>
       <div class="topbar__meta"><span class="endpoint"><i aria-hidden="true"></i>127.0.0.1 · 本地服务</span><span class="divider"></span><span class="boundary">授权 QA · 隐私研究 · 会话隔离</span></div>
       <div class="topbar__actions">
+        <button class="button button--quiet" type="button" aria-label="退出应用" @click="shutdown.request"><span class="topbar__icon" aria-hidden="true">⏻</span><span class="topbar__label">退出应用</span></button>
         <button class="button button--quiet" type="button" aria-label="运行诊断" @click="openDoctor"><span class="topbar__icon" aria-hidden="true">◎</span><span class="topbar__label">运行诊断</span></button>
         <button class="button button--quiet" type="button" aria-label="回收站" @click="trashOpen = true"><span class="topbar__icon" aria-hidden="true">♲</span><span class="topbar__label">回收站</span> <span v-if="trash.length" class="topbar__count">{{ trash.length }}</span></button>
         <button class="button button--primary topbar__create" type="button" @click="manager.create"><span aria-hidden="true">＋</span>新建 Profile</button>
@@ -125,6 +141,10 @@ onBeforeUnmount(() => { if (sessionTimer !== undefined) window.clearInterval(ses
       :busy="Boolean(deleteTarget && actionIds.has(deleteTarget.id))" @cancel="deleteTarget = null" @confirm="confirmDelete" />
     <ConfirmDialog :open="Boolean(purgeTarget)" title="永久删除？" :description="`“${purgeTarget?.profile.name ?? ''}”的配置与回收站内浏览器数据将被永久删除，此操作不可撤销。`"
       :busy="Boolean(purgeTarget && actionIds.has(purgeTarget.profile.id))" @cancel="purgeTarget = null" @confirm="confirmPurge" />
+    <ConfirmDialog :open="shutdown.confirmOpen.value" title="退出 ProfileWeave？"
+      description="退出会停止本地服务以及由本应用持有的浏览器会话。Profile 配置和浏览器数据会保留。"
+      confirm-label="退出应用" busy-label="正在退出…" :busy="shutdown.busy.value" :error="shutdown.error.value"
+      @cancel="shutdown.cancel" @confirm="confirmShutdown" />
     <Transition name="toast"><div v-if="notice" class="toast" role="status"><span aria-hidden="true">✓</span>{{ notice }}</div></Transition>
   </div>
 </template>

@@ -5,102 +5,139 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
-	"net/http"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strconv"
-	"sync"
-	"syscall"
 	"time"
 
-	browserapp "github.com/miahwk/profileweave/internal/browser/application"
-	browserinfra "github.com/miahwk/profileweave/internal/browser/infrastructure"
 	"github.com/miahwk/profileweave/internal/buildinfo"
-	"github.com/miahwk/profileweave/internal/platform/httpapi"
+	"github.com/miahwk/profileweave/internal/platform/desktop"
 	"github.com/miahwk/profileweave/internal/platform/instancelock"
-	profileapp "github.com/miahwk/profileweave/internal/profile/application"
-	profileinfra "github.com/miahwk/profileweave/internal/profile/infrastructure"
+)
+
+type commandOptions struct {
+	showVersion bool
+	open        bool
+	shutdown    bool
+	logFile     string
+}
+
+var (
+	openManagementURL   = desktop.Open
+	userConfigDirectory = os.UserConfigDir
 )
 
 func main() {
-	showVersion := flag.Bool("version", false, "print version information and exit")
-	flag.Parse()
-	if *showVersion {
+	if err := runCommand(os.Args[1:], os.Stderr); err != nil {
+		os.Exit(1)
+	}
+}
+
+func runCommand(args []string, flagOutput io.Writer) (result error) {
+	options, err := parseOptions(args, flagOutput)
+	if err != nil {
+		log.Printf("ProfileWeave: %v", err)
+		return err
+	}
+	if options.showVersion {
 		info := buildinfo.Current()
 		fmt.Printf("version=%s commit=%s date=%s\n", info.Version, info.Commit, info.Date)
-		return
+		return nil
 	}
 	dataDir, err := resolveDataDir()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-	dataLock, err := instancelock.Acquire(dataDir)
+	closeLog, err := configureLogFile(options.logFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("ProfileWeave: %v", err)
+		return err
+	}
+	defer func() {
+		if result != nil {
+			log.Printf("ProfileWeave: %v", result)
+		}
+		closeLog()
+	}()
+
+	managementURL, err := desktop.ManagementURL(port())
+	if err != nil {
+		return err
+	}
+	if options.shutdown {
+		ctx, cancel := commandContext(20 * time.Second)
+		defer cancel()
+		return runShutdown(ctx, managementURL, dataDir)
+	}
+
+	dataLock, err := instancelock.Acquire(dataDir)
+	if errors.Is(err, instancelock.ErrDataDirInUse) && options.open {
+		ctx, cancel := commandContext(5 * time.Second)
+		defer cancel()
+		if err := verifyProfileWeave(ctx, managementURL); err != nil {
+			return fmt.Errorf("existing data owner could not be verified: %w", err)
+		}
+		return openManagementURL(managementURL)
+	}
+	if err != nil {
+		return err
 	}
 	defer func() {
 		if err := dataLock.Close(); err != nil {
 			log.Printf("release data directory lock: %v", err)
 		}
 	}()
-	repository, err := profileinfra.NewJSONRepository(dataDir)
+	return serveApplication(dataDir, managementURL, options.open)
+}
+
+func runShutdown(ctx context.Context, managementURL, dataDir string) error {
+	info, err := os.Stat(dataDir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("inspect profile data directory: %w", err)
 	}
-	runtime, err := browserinfra.NewProcessRuntime(dataDir)
-	if err != nil {
-		log.Fatal(err)
+	if !info.IsDir() {
+		return errors.New("profile data path is not a directory")
 	}
-	browsers := browserapp.NewService(repository, runtime)
-	profiles := profileapp.NewService(repository, browsers, runtime, runtime)
+	dataLock, err := instancelock.Acquire(dataDir)
+	if err == nil {
+		return dataLock.Close()
+	}
+	if !errors.Is(err, instancelock.ErrDataDirInUse) {
+		return err
+	}
+	return shutdownExisting(ctx, managementURL, dataDir)
+}
 
-	server := &http.Server{
-		Addr:              "127.0.0.1:" + port(),
-		Handler:           httpapi.WithWebDir(httpapi.New(profiles, browsers), resolveWebDir()),
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       60 * time.Second,
-		MaxHeaderBytes:    16 << 10,
+func parseOptions(args []string, output io.Writer) (commandOptions, error) {
+	var options commandOptions
+	flags := flag.NewFlagSet("profileweave", flag.ContinueOnError)
+	flags.SetOutput(output)
+	flags.BoolVar(&options.showVersion, "version", false, "print version information and exit")
+	flags.BoolVar(&options.open, "open", false, "open the local management console")
+	flags.BoolVar(&options.shutdown, "shutdown", false, "request the running application to exit")
+	flags.StringVar(&options.logFile, "log-file", "", "append logs to a rotating local file")
+	if err := flags.Parse(args); err != nil {
+		return commandOptions{}, err
 	}
-	go func() {
-		log.Printf("ProfileWeave API listening on http://%s", server.Addr)
-		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatal(err)
-		}
-	}()
-
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
-	<-signals
-	serverCtx, cancelServer := context.WithTimeout(context.Background(), 5*time.Second)
-	_ = server.Shutdown(serverCtx)
-	cancelServer()
-
-	var stops sync.WaitGroup
-	for _, session := range browsers.List() {
-		if browsers.IsRunning(session.ProfileID) {
-			stops.Add(1)
-			go func(profileID string) {
-				defer stops.Done()
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancel()
-				if _, err := browsers.Stop(ctx, profileID); err != nil {
-					log.Printf("stop browser profile=%s: %v", profileID, err)
-				}
-			}(session.ProfileID)
-		}
+	if flags.NArg() != 0 {
+		return commandOptions{}, fmt.Errorf("unexpected arguments: %v", flags.Args())
 	}
-	stops.Wait()
+	if options.shutdown && options.open {
+		return commandOptions{}, errors.New("--open and --shutdown cannot be used together")
+	}
+	return options, nil
 }
 
 func resolveDataDir() (string, error) {
 	if configured := firstEnv("PROFILEWEAVE_DATA_DIR", "FINGERPRINT_BROWSER_DATA_DIR"); configured != "" {
 		return filepath.Abs(configured)
 	}
-	config, err := os.UserConfigDir()
+	config, err := userConfigDirectory()
 	if err != nil {
 		return "", err
 	}

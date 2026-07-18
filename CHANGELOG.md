@@ -34,6 +34,10 @@ published yet.
   through standard Web APIs, plus a one-click editor start-page preset.
 - Frontend profile-manager state tests covering partial loads, lifecycle
   actions, recoverable deletion, runtime diagnostics, and busy-state cleanup.
+- Per-user Windows amd64/arm64 installers with Start Menu integration, safe
+  application shutdown, upgrade reuse, and uninstall-time data retention.
+- Cross-platform `--open`, `--shutdown`, and bounded local log-file application
+  lifecycle commands, including Windows GUI installer shortcuts.
 
 ### Changed
 

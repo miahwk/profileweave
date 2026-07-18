@@ -14,6 +14,7 @@ ProfileWeave Browser 是一个使用 Vue 3 与 Go 构建的本地浏览器 Profi
 - “已应用 / 部分应用 / 未支持”的运行时能力矩阵，不把已保存配置误报为内核能力。
 - 可替换 Runtime Provider 元数据、`doctor` 本机诊断和 `/self-check` 浏览器实际环境自检页。
 - 本地 JSON 原子持久化、loopback API、随机写操作令牌、Host/Origin 防护、安全 argv 启动。
+- Windows 普通用户安装器、开始菜单启动/退出、重复启动复用和卸载保留 Profile 数据。
 - Vue 响应式管理台、Go/TypeScript 测试、CI 和源文件行数守卫。
 
 设计与验收资料：
@@ -23,6 +24,7 @@ ProfileWeave Browser 是一个使用 Vue 3 与 Go 构建的本地浏览器 Profi
 - [DDD 实现方案](docs/architecture.md)
 - [交付价值与验收](docs/delivery-value.md)
 - [威胁模型](docs/threat-model.md)
+- [Windows 安装与生命周期 RFC](docs/windows-installer-rfc.md)
 
 ## 快速开始
 
@@ -36,6 +38,12 @@ go run ./cmd/server
 
 打开 `http://127.0.0.1:3210`。开发前端时，可在另一个终端运行 `pnpm --dir frontend dev`，然后访问 `http://127.0.0.1:5173`。
 
+Windows 用户在首个 GitHub Release 发布后，可下载与系统架构匹配的
+`profileweave-vX.Y.Z-windows-<arch>-setup.exe`。当前安装包尚未配置 Authenticode，
+属于 unsigned preview，运行前请按[安装指南](docs/installation.md)校验 SHA-256 和
+GitHub provenance；不要绕过组织的终端安全策略。安装版最低支持 Windows 10
+version 1809（build 17763）或 Windows Server 2019。
+
 ## 验证与构建
 
 ```powershell
@@ -44,7 +52,7 @@ powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -SkipVerify -Version 
 dist/profileweave.exe --version
 ```
 
-本地构建输出到 `dist/`，包含可执行文件、Vue 静态资源、README、项目许可证和第三方许可说明。正式 Release 由 `v*` tag 工作流生成多平台归档、SHA256 校验和、SBOM 与构建来源证明；详见[发布流程](docs/release-process.md)。
+本地构建输出到 `dist/`，包含可执行文件、Vue 静态资源、README、项目许可证和第三方许可说明。正式 Release 由 `v*` tag 工作流生成多平台归档、Windows 安装器、SHA256 校验和、SBOM 与构建来源证明；详见[发布流程](docs/release-process.md)。
 
 ## 配置
 
@@ -75,7 +83,7 @@ ProfileWeave/
 
 | 平台 | 构建/CI | 浏览器实机验证 | 发布说明 |
 | --- | --- | --- | --- |
-| Windows amd64 | 支持 | Chrome、Edge | 首要支持平台；正式签名前二进制会显示 unsigned 提示 |
+| Windows amd64 | 支持 | Chrome、Edge | Windows 10 1809 / Server 2019 或更高；当前为 unsigned preview |
 | Windows arm64 | 交叉构建 | 未验证 | 预览支持 |
 | Linux amd64/arm64 | CI 与交叉构建 | 未完成完整矩阵 | 预览支持 |
 | macOS amd64/arm64 | CI 与交叉构建 | 未完成完整矩阵 | 预览支持；尚未 notarize |
@@ -95,6 +103,7 @@ API 前缀为 `/api/v1`：
 
 - `GET /health`、`GET /capabilities`、`GET /doctor`
 - `GET /bootstrap`（取得本进程临时写操作令牌）
+- `POST /shutdown`（触发本地应用统一退出）
 - `GET|POST /profiles`
 - `GET|PUT|DELETE /profiles/{id}`
 - `POST /profiles/{id}/duplicate|validate|launch|stop`

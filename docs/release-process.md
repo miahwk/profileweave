@@ -1,11 +1,12 @@
 # 发布流程
 
 本文面向仓库维护者，定义可重复、可审计的 GitHub Release 过程。Release 工作流
-构建 Windows、Linux、macOS 的 amd64/arm64 归档，发布 SHA-256、SPDX JSON SBOM
-并生成 GitHub build provenance。
+构建 Windows、Linux、macOS 的 amd64/arm64 归档和 Windows per-user 安装器，发布
+SHA-256、SPDX JSON SBOM 并生成 GitHub build provenance。
 
-> 当前尚未发布稳定版本。`v0.1.0` 仍处于 `Unreleased`，只有完成本文全部发布前检查、
-> 从已验证的默认分支提交创建 tag，并确认 Release 工作流成功后，才能标记为已发布。
+> 当前尚未发布稳定版本。`v0.1.0` 仍处于 `Unreleased`，首个未签名安装包必须发布为
+> Pre-release；只有完成本文全部发布前检查、从已验证的默认分支提交创建 tag，并确认
+> Release 工作流成功后，才能标记为已发布的 preview。
 
 ## 仓库一次性配置
 
@@ -58,6 +59,9 @@ go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 7. 合并后确认默认分支 CI 全绿，工作区无未提交变更。
 8. 在隔离的临时数据目录执行一次打包产物的 Profile 创建、启动、停止和重启恢复
    smoke test。不得使用真实账号或生产 Profile。
+9. 在原生 Windows runner 对 setup 执行静默安装、`--version`、启动/health、
+   同 AppId 覆盖安装、`--shutdown` 和静默卸载；确认安装目录删除而隔离测试数据目录中
+   的 sentinel 保留。
 
 ## 创建版本
 
@@ -76,12 +80,14 @@ git push origin vX.Y.Z
 
 发布 job 完成后，维护者必须：
 
-- 确认六个 OS/架构归档、`SHA256SUMS` 和一个 SPDX JSON SBOM 都已上传。
+- 确认六个 OS/架构归档、两个 Windows setup、`SHA256SUMS` 和一个 SPDX JSON SBOM 都已上传。
 - 在干净环境下载归档并独立计算 SHA-256，与 `SHA256SUMS` 比较。
 - 使用 `gh attestation verify <artifact> --repo <owner>/<repository>` 验证 provenance。
 - 解压至少 Windows、Linux、macOS 各一个原生架构包，检查 LICENSE、NOTICE、
   THIRD_PARTY_NOTICES、README 和 `frontend/dist` 都存在。
 - 在支持的平台运行二进制并确认版本、commit、build date 与 tag/commit 一致。
+- 核对 Windows setup 文件名架构、普通用户安装目录、开始菜单启动/退出快捷方式和
+  卸载数据保留行为；未签名时把 Release 标为 preview 并明确 SmartScreen 风险。
 - 确认发布包没有浏览器二进制、测试 Profile、缓存、日志、`.env` 或凭证。
 
 若任何验证失败，删除或标记该 Release 为预发布并发布修复版本；不要静默替换同名

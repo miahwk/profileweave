@@ -78,7 +78,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 - Project: <https://pkg.go.dev/golang.org/x/sys>
 - License: BSD-3-Clause
-- Purpose: operating-system file locking used transitively by gofrs/flock
+- Purpose: Windows ShellExecute integration and operating-system primitives
+  used by ProfileWeave and transitively by gofrs/flock
 
 ```text
 Copyright (c) 2009 The Go Authors. All rights reserved.
@@ -117,6 +118,19 @@ The source tree uses Vite, Vitest, TypeScript, vue-tsc, `@vitejs/plugin-vue`,
 dependencies are development tools and are not shipped as standalone packages
 inside a binary release. See `frontend/pnpm-lock.yaml` and each package's
 license metadata for exact versions and terms.
+
+### Inno Setup 6.7.3
+
+- Project: <https://jrsoftware.org/isinfo.php>
+- Source: <https://github.com/jrsoftware/issrc/tree/is-6_7_3>
+- License: Inno Setup License
+- Purpose: builds the Windows setup and uninstaller executables
+
+The Windows installer is produced with Inno Setup. Inno Setup is Copyright
+(C) 1997-2026 Jordan Russell, with portions Copyright (C) 2000-2026 Martijn
+Laan. It is provided as-is. Its license permits use and binary redistribution;
+the original copyright and website references remain in the generated setup
+and uninstaller. ProfileWeave does not claim authorship of Inno Setup.
 
 ## Browser licenses
 

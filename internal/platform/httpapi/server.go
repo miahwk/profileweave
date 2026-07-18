@@ -22,18 +22,26 @@ type API struct {
 	profiles     *profileapp.Service
 	browsers     *browserapp.Service
 	controlToken string
+	shutdown     func()
 	handler      http.Handler
 }
 
 func New(profiles *profileapp.Service, browsers *browserapp.Service) *API {
-	return newAPI(profiles, browsers, newControlToken())
+	return NewWithShutdown(profiles, browsers, nil)
 }
 
-func newAPI(profiles *profileapp.Service, browsers *browserapp.Service, token string) *API {
-	api := &API{profiles: profiles, browsers: browsers, controlToken: token}
+// NewWithShutdown creates the local API and calls shutdown after an authorized
+// shutdown request has received its response.
+func NewWithShutdown(profiles *profileapp.Service, browsers *browserapp.Service, shutdown func()) *API {
+	return newAPI(profiles, browsers, newControlToken(), shutdown)
+}
+
+func newAPI(profiles *profileapp.Service, browsers *browserapp.Service, token string, shutdown func()) *API {
+	api := &API{profiles: profiles, browsers: browsers, controlToken: token, shutdown: shutdown}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", api.health)
 	mux.HandleFunc("GET /api/v1/bootstrap", api.bootstrap)
+	mux.HandleFunc("POST /api/v1/shutdown", api.requestShutdown)
 	mux.HandleFunc("GET /api/v1/capabilities", api.capabilities)
 	mux.HandleFunc("GET /api/v1/runtime/capabilities", api.capabilities)
 	mux.HandleFunc("GET /api/v1/doctor", api.doctor)
@@ -62,9 +70,10 @@ type listResponse[T any] struct {
 
 func (a *API) health(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, struct {
-		Status string `json:"status"`
+		Status  string `json:"status"`
+		Product string `json:"product"`
 		buildinfo.Info
-	}{Status: "ok", Info: buildinfo.Current()})
+	}{Status: "ok", Product: "ProfileWeave", Info: buildinfo.Current()})
 }
 
 func (a *API) listProfiles(w http.ResponseWriter, r *http.Request) {

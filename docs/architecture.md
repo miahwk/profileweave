@@ -108,6 +108,7 @@ flowchart LR
 | GET | `/api/v1/health` | 健康状态与版本 |
 | GET | `/api/v1/capabilities` | 浏览器发现和 runtime 能力 |
 | GET | `/api/v1/doctor` | Provider 来源、浏览器可用性、活动会话与结构化诊断 |
+| POST | `/api/v1/shutdown` | 使用当前进程控制令牌触发统一退出 |
 | GET/POST | `/api/v1/profiles` | 列表/创建 |
 | GET/PUT/DELETE | `/api/v1/profiles/{id}` | 详情/更新/删除 |
 | POST | `/api/v1/profiles/{id}/duplicate` | 复制 profile，不复制运行状态 |
@@ -189,6 +190,11 @@ flowchart LR
 - Manual smoke：创建 profile → 查看报告 → 启动已发现浏览器 → 产生独立目录 → 停止 → 重启服务仍能看到 profile。
 
 浏览器实际环境自检页位于 `/self-check`。它只读取当前页面可观测的 Web API 值，可设置为 Profile 启动页进行回归对照；它不是第三方检测站点的替代品，也不输出“不可检测”结论。
+
+Windows 安装版的完整生命周期、安装目录、升级识别、退出和卸载数据保留约定见
+[Windows 安装与应用生命周期 RFC](windows-installer-rfc.md)。开始菜单启动只在同步绑定
+loopback 监听后打开管理台；重复启动和退出命令都必须先通过健康端点产品标识确认目标
+是 ProfileWeave，不能根据端口或未验证 PID 操作其他本地进程。
 
 ## 11. 取舍记录
 

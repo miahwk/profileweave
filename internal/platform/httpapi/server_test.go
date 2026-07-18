@@ -161,7 +161,7 @@ func newTestAPI() *API {
 	runtime := &fakeRuntime{started: make(map[string]chan error)}
 	browsers := browserapp.NewService(repo, runtime)
 	profiles := profileapp.NewService(repo, browsers, nil)
-	return newAPI(profiles, browsers, "test-control-token")
+	return newAPI(profiles, browsers, "test-control-token", nil)
 }
 
 func testInput() profiledomain.Input {

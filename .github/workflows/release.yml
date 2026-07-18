@@ -20,21 +20,21 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@b0f76dfb45f55f8421693e4803ac7bb65143bd34 # v6
         with:
           version: 11
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           cache: pnpm
@@ -54,7 +54,7 @@ jobs:
         run: pnpm --dir frontend audit --audit-level high
 
       - name: Upload frontend bundle
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-frontend
           path: frontend/dist
@@ -97,7 +97,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
@@ -107,13 +107,13 @@ jobs:
           [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Download verified frontend bundle
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: release-frontend
           path: frontend/dist
@@ -153,16 +153,95 @@ jobs:
           fi
 
       - name: Upload package
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: profileweave-${{ matrix.goos }}-${{ matrix.goarch }}
           path: release/profileweave-*.${{ matrix.archive }}
           if-no-files-found: error
           retention-days: 7
 
+  windows-installer:
+    name: Build and smoke test Windows installers
+    needs: quality
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      INNO_SETUP_VERSION: "6.7.3"
+      INNO_SETUP_URL: https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe
+      INNO_SETUP_SHA256: 9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate semantic version tag
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_NAME -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$') {
+            throw "invalid release tag: $env:GITHUB_REF_NAME"
+          }
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download verified frontend bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-frontend
+          path: frontend/dist
+
+      - name: Build amd64 installer
+        id: amd64
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          $commit = (git rev-parse --short=12 HEAD).Trim()
+          $buildDate = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+          $installer = ./scripts/build-windows-installer.ps1 `
+            -Architecture amd64 `
+            -Version $version `
+            -Commit $commit `
+            -BuildDate $buildDate `
+            -InnoSetupVersion $env:INNO_SETUP_VERSION `
+            -InnoSetupURL $env:INNO_SETUP_URL `
+            -InnoSetupSHA256 $env:INNO_SETUP_SHA256
+          "installer=$installer" >> $env:GITHUB_OUTPUT
+
+      - name: Smoke test amd64 install lifecycle
+        shell: pwsh
+        run: ./scripts/smoke-windows-installer.ps1 -InstallerPath '${{ steps.amd64.outputs.installer }}' -Version $env:GITHUB_REF_NAME
+
+      - name: Build arm64 installer
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          $commit = (git rev-parse --short=12 HEAD).Trim()
+          $buildDate = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+          ./scripts/build-windows-installer.ps1 `
+            -Architecture arm64 `
+            -Version $version `
+            -Commit $commit `
+            -BuildDate $buildDate `
+            -InnoSetupVersion $env:INNO_SETUP_VERSION `
+            -InnoSetupURL $env:INNO_SETUP_URL `
+            -InnoSetupSHA256 $env:INNO_SETUP_SHA256
+
+      - name: Upload Windows installers
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: profileweave-windows-installers
+          path: release/profileweave-*-windows-*-setup.exe
+          if-no-files-found: error
+          retention-days: 7
+
   publish:
     name: Publish GitHub release
-    needs: build
+    needs: [build, windows-installer]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -172,17 +251,17 @@ jobs:
 
     steps:
       - name: Check out repository for SBOM
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Download packages
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: profileweave-*
           path: release
           merge-multiple: true
 
       - name: Generate SPDX SBOM
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
           path: .
           format: spdx-json
@@ -198,17 +277,25 @@ jobs:
             | xargs -0 sha256sum > SHA256SUMS
 
       - name: Attest release artifacts
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@78e6cbd37d0ac1a40113c04f2037dacf1ea3f12e # v4
         with:
           subject-path: release/*
 
       - name: Publish release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@c12583777ecdfd3be55c69cf75464299dc01057e # v3
         with:
           generate_release_notes: true
+          prerelease: true
+          overwrite_files: false
+          body: |
+            > Windows setup and executable files in this preview are not yet
+            > Authenticode-signed and may trigger an Unknown Publisher or
+            > SmartScreen warning. Verify SHA256SUMS and GitHub provenance;
+            > do not bypass organizational endpoint-security policy.
           fail_on_unmatched_files: true
           files: |
             release/profileweave-*.zip
             release/profileweave-*.tar.gz
+            release/profileweave-*-setup.exe
             release/profileweave-*-sbom.spdx.json
             release/SHA256SUMS

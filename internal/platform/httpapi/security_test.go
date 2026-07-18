@@ -45,7 +45,8 @@ func TestHTTPGuardsAndStructuredErrors(t *testing.T) {
 
 func TestHealthIncludesBuildInfoAndSecurityHeaders(t *testing.T) {
 	response := request(t, newTestAPI(), http.MethodGet, "/api/v1/health", nil)
-	if response.Code != http.StatusOK || !bytes.Contains(response.Body.Bytes(), []byte(`"version":"dev"`)) {
+	if response.Code != http.StatusOK || !bytes.Contains(response.Body.Bytes(), []byte(`"version":"dev"`)) ||
+		!bytes.Contains(response.Body.Bytes(), []byte(`"product":"ProfileWeave"`)) {
 		t.Fatalf("health response %d: %s", response.Code, response.Body.String())
 	}
 	for name, want := range map[string]string{
@@ -58,6 +59,44 @@ func TestHealthIncludesBuildInfoAndSecurityHeaders(t *testing.T) {
 		if got := response.Header().Get(name); !bytes.Contains([]byte(got), []byte(want)) {
 			t.Errorf("%s=%q, want containing %q", name, got, want)
 		}
+	}
+}
+
+func TestShutdownRequiresTokenAndInvokesCallback(t *testing.T) {
+	api := newTestAPI()
+	called := make(chan struct{}, 1)
+	api.shutdown = func() { called <- struct{}{} }
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/shutdown", nil)
+	req.Host = "127.0.0.1:3210"
+	denied := httptest.NewRecorder()
+	api.ServeHTTP(denied, req)
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("missing token status = %d", denied.Code)
+	}
+	select {
+	case <-called:
+		t.Fatal("unauthorized request invoked shutdown")
+	default:
+	}
+
+	accepted := request(t, api, http.MethodPost, "/api/v1/shutdown", nil)
+	if accepted.Code != http.StatusAccepted {
+		t.Fatalf("shutdown status %d: %s", accepted.Code, accepted.Body.String())
+	}
+	select {
+	case <-called:
+	default:
+		t.Fatal("authorized request did not invoke shutdown")
+	}
+	second := request(t, api, http.MethodPost, "/api/v1/shutdown", nil)
+	if second.Code != http.StatusAccepted {
+		t.Fatalf("second shutdown status %d", second.Code)
+	}
+	select {
+	case <-called:
+	default:
+		t.Fatal("a later shutdown request did not allow cleanup retry")
 	}
 }
 
