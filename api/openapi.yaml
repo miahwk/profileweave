@@ -358,12 +358,19 @@ components:
         version: { type: string }
         commit: { type: string }
         date: { type: string }
+    BrowserInput:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string, enum: [auto, chrome, edge, brave, chromium] }
     Browser:
       type: object
       required: [kind]
       properties:
-        kind: { type: string, enum: [auto, chrome, edge, brave, chromium, custom] }
-        customPath: { type: string }
+        kind:
+          type: string
+          enum: [auto, chrome, edge, brave, chromium, custom-disabled]
+          description: custom-disabled marks a migrated legacy selection that must be changed before launch
     Screen:
       type: object
       required: [width, height, dpr]
@@ -406,7 +413,7 @@ components:
           maxItems: 20
           items: { type: string, maxLength: 32 }
         startURL: { type: string }
-        browser: { $ref: '#/components/schemas/Browser' }
+        browser: { $ref: '#/components/schemas/BrowserInput' }
         fingerprint: { $ref: '#/components/schemas/Fingerprint' }
         proxy: { $ref: '#/components/schemas/Proxy' }
     ProfileUpdate:
@@ -426,7 +433,7 @@ components:
           maxItems: 20
           items: { type: string, maxLength: 32 }
         startURL: { type: string }
-        browser: { $ref: '#/components/schemas/Browser' }
+        browser: { $ref: '#/components/schemas/BrowserInput' }
         fingerprint: { $ref: '#/components/schemas/Fingerprint' }
         proxy: { $ref: '#/components/schemas/Proxy' }
     Profile:
@@ -474,7 +481,6 @@ components:
       properties:
         id: { type: string }
         name: { type: string }
-        path: { type: string }
         available: { type: boolean }
     FeatureCapability:
       type: object

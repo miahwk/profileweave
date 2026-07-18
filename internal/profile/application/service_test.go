@@ -168,7 +168,7 @@ func TestCreateArchivesNewDataWhenMetadataSaveFails(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			repo := &repositoryStub{saveErr: saveErr}
 			data := &dataStub{created: test.created, trashToken: "opaque"}
-			service := NewService(repo, nil, nil, data)
+			service := NewService(repo, nil, data)
 			service.newID = func() (string, error) { return testProfileID, nil }
 			_, err := service.Create(context.Background(), validInput())
 			if !errors.Is(err, saveErr) || data.trashCalls != test.wantTrashes {
@@ -182,7 +182,7 @@ func TestDeleteRestoresDataWhenMetadataDeleteFails(t *testing.T) {
 	deleteErr := errors.New("delete failed")
 	repo := &repositoryStub{item: existingProfile(t), deleteErr: deleteErr}
 	data := &dataStub{trashToken: "restore-me"}
-	service := NewService(repo, nil, nil, data)
+	service := NewService(repo, nil, data)
 	if err := service.Delete(context.Background(), testProfileID); !errors.Is(err, deleteErr) {
 		t.Fatalf("Delete error = %v", err)
 	}
@@ -193,7 +193,7 @@ func TestDeleteRestoresDataWhenMetadataDeleteFails(t *testing.T) {
 
 func TestRunningProfileCannotBeUpdatedOrDeleted(t *testing.T) {
 	repo := &repositoryStub{item: existingProfile(t)}
-	service := NewService(repo, activityStub(true), nil)
+	service := NewService(repo, activityStub(true))
 	if _, err := service.Update(context.Background(), testProfileID, 1, validInput()); !errors.Is(err, ErrProfileRunning) {
 		t.Fatalf("Update error = %v", err)
 	}
@@ -205,7 +205,7 @@ func TestRunningProfileCannotBeUpdatedOrDeleted(t *testing.T) {
 func TestDeleteRejectsInvalidIDBeforeDataLifecycle(t *testing.T) {
 	repo := &repositoryStub{item: existingProfile(t)}
 	data := &dataStub{trashToken: "unexpected"}
-	service := NewService(repo, nil, nil, data)
+	service := NewService(repo, nil, data)
 	if err := service.Delete(context.Background(), "../browser-data"); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("Delete error = %v", err)
 	}
@@ -218,7 +218,7 @@ func TestDeleteWaitsForSharedBrowserLifecycleLock(t *testing.T) {
 	repo := &repositoryStub{item: existingProfile(t)}
 	data := &dataStub{trashToken: "restore-me"}
 	activity := &blockingActivity{entered: make(chan struct{}), release: make(chan struct{})}
-	service := NewService(repo, activity, nil, data)
+	service := NewService(repo, activity, data)
 	done := make(chan error, 1)
 	go func() { done <- service.Delete(context.Background(), testProfileID) }()
 

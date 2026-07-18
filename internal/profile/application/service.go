@@ -24,10 +24,6 @@ type LifecycleLocker interface {
 	LockProfile(profileID string) func()
 }
 
-type PathValidator interface {
-	ValidateExecutable(path string) error
-}
-
 type DataProvisioner interface {
 	EnsureProfileData(profileID string) (created bool, err error)
 	TrashProfileData(profileID string) (restoreToken string, err error)
@@ -39,14 +35,13 @@ type DataProvisioner interface {
 type Service struct {
 	repo     domain.Repository
 	activity Activity
-	paths    PathValidator
 	data     DataProvisioner
 	now      func() time.Time
 	newID    func() (string, error)
 }
 
-func NewService(repo domain.Repository, activity Activity, paths PathValidator, data ...DataProvisioner) *Service {
-	service := &Service{repo: repo, activity: activity, paths: paths, now: time.Now, newID: generateID}
+func NewService(repo domain.Repository, activity Activity, data ...DataProvisioner) *Service {
+	service := &Service{repo: repo, activity: activity, now: time.Now, newID: generateID}
 	if len(data) > 0 {
 		service.data = data[0]
 	}
@@ -81,9 +76,6 @@ func (s *Service) Get(ctx context.Context, id string) (domain.Profile, error) {
 }
 
 func (s *Service) Create(ctx context.Context, in domain.Input) (domain.Profile, error) {
-	if err := s.validatePath(in); err != nil {
-		return domain.Profile{}, err
-	}
 	id, err := s.newID()
 	if err != nil {
 		return domain.Profile{}, err
@@ -120,9 +112,6 @@ func (s *Service) Update(ctx context.Context, id string, expected uint64, in dom
 	unlock := s.lockLifecycle(id)
 	defer unlock()
 
-	if err := s.validatePath(in); err != nil {
-		return domain.Profile{}, err
-	}
 	current, err := s.Get(ctx, id)
 	if err != nil {
 		return domain.Profile{}, err
@@ -188,16 +177,6 @@ func (s *Service) Validate(ctx context.Context, id string) (fingerprint.Report, 
 		return fingerprint.Report{}, err
 	}
 	return fingerprint.Evaluate(profile.Fingerprint, profile.Proxy), nil
-}
-
-func (s *Service) validatePath(in domain.Input) error {
-	if in.Browser.Kind != "custom" || s.paths == nil {
-		return nil
-	}
-	if err := s.paths.ValidateExecutable(in.Browser.CustomPath); err != nil {
-		return &domain.ValidationError{Details: []domain.FieldError{{Field: "browser.customPath", Message: err.Error()}}}
-	}
-	return nil
 }
 
 func (s *Service) lockLifecycle(id string) func() {

@@ -11,7 +11,7 @@ import (
 func TestRecycleLifecycleRestoresAndPurges(t *testing.T) {
 	repo := &repositoryStub{item: existingProfile(t)}
 	data := &dataStub{trashToken: "restore-token"}
-	service := NewService(repo, nil, nil, data)
+	service := NewService(repo, nil, data)
 	ctx := context.Background()
 
 	if err := service.Delete(ctx, testProfileID); err != nil {
@@ -43,7 +43,7 @@ func TestRestoreRollsBackDataWhenMetadataRestoreFails(t *testing.T) {
 	}
 	repo := &repositoryStub{trash: &entry, restoreErr: restoreErr}
 	data := &dataStub{}
-	service := NewService(repo, nil, nil, data)
+	service := NewService(repo, nil, data)
 	_, err := service.Restore(context.Background(), testProfileID)
 	if !errors.Is(err, restoreErr) || data.restoreCalls != 1 || data.rollbackCalls != 1 {
 		t.Fatalf("err=%v data=%#v", err, data)
@@ -54,7 +54,7 @@ func TestRunningProfileCannotRestoreOrPurge(t *testing.T) {
 	entry := domain.TrashedProfile{Profile: existingProfile(t), DataRestoreToken: "token", DeletedAt: testTime()}
 	repo := &repositoryStub{trash: &entry}
 	data := &dataStub{}
-	service := NewService(repo, activityStub(true), nil, data)
+	service := NewService(repo, activityStub(true), data)
 	if _, err := service.Restore(context.Background(), testProfileID); !errors.Is(err, ErrProfileRunning) {
 		t.Fatalf("Restore error = %v", err)
 	}

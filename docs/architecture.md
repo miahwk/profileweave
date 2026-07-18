@@ -156,8 +156,8 @@ flowchart LR
 - 所有 API 方法校验 loopback `Host`；非安全方法同时校验 `Origin`/Fetch Metadata 和每进程随机控制令牌，拒绝跨站驱动本地进程。
 - JSON body 限制大小，未知字段拒绝，错误不回显敏感路径以外的进程环境。
 - Profile ID 由服务端生成，只允许安全字符；任何磁盘路径都通过固定根目录拼接并校验。
-- 浏览器启动使用 `exec.Command(executable, args...)`，不经过 PowerShell/cmd/bash。
-- 自定义浏览器必须是存在的普通文件；不允许附带参数。
+- 浏览器启动只使用服务端发现的固定候选路径，通过 `exec.Command(executable, args...)` 执行，不经过 PowerShell/cmd/bash。
+- 初始版本不接受 HTTP/Profile 提供的浏览器可执行文件路径；未来自定义安装需先经过独立的本地信任注册流程。
 - 不持久化代理密码，不开放远程调试端口。
 - 浏览器启动/停止与 profile 更新、删除、恢复、永久删除共享生命周期锁，避免跨仓储和数据目录的并发半完成状态；运行中的 profile 返回冲突。
 

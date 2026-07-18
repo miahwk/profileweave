@@ -34,7 +34,6 @@ type BrowserDescriptor struct {
 type LaunchSpec struct {
 	ProfileID    string
 	BrowserKind  string
-	CustomPath   string
 	StartURL     string
 	Locale       string
 	Width        int
@@ -88,13 +87,13 @@ type DoctorIssue struct {
 }
 
 type DoctorReport struct {
-	Provider           ProviderInfo        `json:"provider"`
-	Healthy            bool                `json:"healthy"`
-	InspectedBrowsers  int                 `json:"inspectedBrowsers"`
-	AvailableBrowsers  int                 `json:"availableBrowsers"`
-	ActiveSessions     int                 `json:"activeSessions"`
-	Browsers           []BrowserDescriptor `json:"browsers"`
-	Issues             []DoctorIssue       `json:"issues"`
+	Provider          ProviderInfo        `json:"provider"`
+	Healthy           bool                `json:"healthy"`
+	InspectedBrowsers int                 `json:"inspectedBrowsers"`
+	AvailableBrowsers int                 `json:"availableBrowsers"`
+	ActiveSessions    int                 `json:"activeSessions"`
+	Browsers          []BrowserDescriptor `json:"browsers"`
+	Issues            []DoctorIssue       `json:"issues"`
 }
 
 type Runtime interface {

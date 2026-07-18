@@ -207,7 +207,7 @@ func (s *Service) Doctor(ctx context.Context) (domain.DoctorReport, error) {
 		report.Issues = append(report.Issues, domain.DoctorIssue{
 			Code: "no_browser_available", Severity: "error",
 			Message:    "No supported local Chromium browser was found.",
-			Suggestion: "Install Chrome, Edge, Brave, or Chromium, or configure an absolute custom browser path.",
+			Suggestion: "Install Chrome, Edge, Brave, or Chromium and retry browser discovery.",
 		})
 	}
 	return report, nil
@@ -251,7 +251,7 @@ func safeRuntimeError(err error) string {
 func toLaunchSpec(profile profiledomain.Profile) domain.LaunchSpec {
 	fp, proxy := profile.Fingerprint, profile.Proxy
 	return domain.LaunchSpec{
-		ProfileID: profile.ID, BrowserKind: profile.Browser.Kind, CustomPath: profile.Browser.CustomPath,
+		ProfileID: profile.ID, BrowserKind: profile.Browser.Kind,
 		StartURL: profile.StartURL, Locale: fp.Locale, Width: fp.Screen.Width, Height: fp.Screen.Height,
 		DPR: fp.Screen.DPR, UAMode: fp.UAMode, UserAgent: fp.UserAgent,
 		ProxyMode: proxy.Mode, ProxyHost: proxy.Host, ProxyPort: proxy.Port, WebRTCPolicy: fp.WebRTCPolicy,

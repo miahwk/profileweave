@@ -13,10 +13,16 @@ type featureCapability struct {
 	Detail string                  `json:"detail,omitempty"`
 }
 
+type browserCapability struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Available bool   `json:"available"`
+}
+
 type capabilityResponse struct {
-	Provider domain.ProviderInfo        `json:"provider"`
-	Browsers []domain.BrowserDescriptor `json:"browsers"`
-	Features []featureCapability        `json:"features"`
+	Provider domain.ProviderInfo `json:"provider"`
+	Browsers []browserCapability `json:"browsers"`
+	Features []featureCapability `json:"features"`
 }
 
 func (a *API) capabilities(w http.ResponseWriter, r *http.Request) {
@@ -26,6 +32,12 @@ func (a *API) capabilities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	provider := a.browsers.RuntimeInfo()
+	publicBrowsers := make([]browserCapability, 0, len(browsers))
+	for _, browser := range browsers {
+		publicBrowsers = append(publicBrowsers, browserCapability{
+			ID: browser.ID, Name: browser.Name, Available: browser.Available,
+		})
+	}
 	features := make([]featureCapability, 0, len(provider.Capabilities))
 	for _, item := range provider.Capabilities {
 		features = append(features, featureCapability{
@@ -33,7 +45,7 @@ func (a *API) capabilities(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	writeJSON(w, http.StatusOK, capabilityResponse{
-		Provider: provider, Browsers: browsers, Features: features,
+		Provider: provider, Browsers: publicBrowsers, Features: features,
 	})
 }
 

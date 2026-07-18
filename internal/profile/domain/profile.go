@@ -20,8 +20,7 @@ var (
 )
 
 type Browser struct {
-	Kind       string `json:"kind"`
-	CustomPath string `json:"customPath,omitempty"`
+	Kind string `json:"kind"`
 }
 
 type Profile struct {
@@ -93,15 +92,9 @@ func ValidateInput(in Input) error {
 			details = append(details, FieldError{"startURL", "start URL must be an HTTP(S) URL without credentials"})
 		}
 	}
-	validBrowser := map[string]bool{"auto": true, "chrome": true, "edge": true, "brave": true, "chromium": true, "custom": true}
+	validBrowser := map[string]bool{"auto": true, "chrome": true, "edge": true, "brave": true, "chromium": true}
 	if !validBrowser[in.Browser.Kind] {
 		details = append(details, FieldError{"browser.kind", "unsupported browser kind"})
-	}
-	if in.Browser.Kind == "custom" && strings.TrimSpace(in.Browser.CustomPath) == "" {
-		details = append(details, FieldError{"browser.customPath", "custom browser path is required"})
-	}
-	if in.Browser.Kind != "custom" && in.Browser.CustomPath != "" {
-		details = append(details, FieldError{"browser.customPath", "custom path is only allowed for a custom browser"})
 	}
 	if report := fingerprint.Evaluate(in.Fingerprint, in.Proxy); report.HasErrors() {
 		for _, issue := range report.Issues {

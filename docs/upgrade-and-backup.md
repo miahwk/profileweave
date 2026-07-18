@@ -41,6 +41,10 @@ Get-FileHash -LiteralPath $destination -Algorithm SHA256
 
 ## 升级步骤
 
+从存储 schema v2 升级时，旧的自定义浏览器路径会被移除，浏览器类型标记为
+`custom-disabled`。该 Profile 在重新选择服务端发现的 Chrome、Edge、Brave 或
+Chromium 并保存前不能启动；迁移不会静默执行旧路径。
+
 使用 Windows 安装器时，确认所有 Profile 已停止并完成备份，然后运行同一架构的新
 setup。固定 AppId 与安装目录会执行覆盖升级，`%APPDATA%\ProfileWeave` 不参与安装器
 删除。升级后仍需检查 Profile 数量并用非敏感测试 Profile 完成启动/停止验证。

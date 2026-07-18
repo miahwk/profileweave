@@ -160,7 +160,7 @@ func newTestAPI() *API {
 	repo := &memoryRepository{items: make(map[string]profiledomain.Profile), trash: make(map[string]profiledomain.TrashedProfile)}
 	runtime := &fakeRuntime{started: make(map[string]chan error)}
 	browsers := browserapp.NewService(repo, runtime)
-	profiles := profileapp.NewService(repo, browsers, nil)
+	profiles := profileapp.NewService(repo, browsers)
 	return newAPI(profiles, browsers, "test-control-token", nil)
 }
 
@@ -237,6 +237,28 @@ func TestProfileCRUDDuplicateAndValidate(t *testing.T) {
 	deleted := request(t, api, http.MethodDelete, "/api/v1/profiles/"+profile.ID, nil)
 	if deleted.Code != http.StatusNoContent {
 		t.Fatalf("delete response %d: %s", deleted.Code, deleted.Body.String())
+	}
+}
+
+func TestProfileCreateRejectsDirectBrowserExecutablePath(t *testing.T) {
+	body := map[string]any{}
+	raw, err := json.Marshal(testInput())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &body); err != nil {
+		t.Fatal(err)
+	}
+	body["browser"] = map[string]any{
+		"kind": "custom", "customPath": `C:\Users\Public\chrome.exe`,
+	}
+
+	response := request(t, newTestAPI(), http.MethodPost, "/api/v1/profiles", body)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("custom executable status = %d: %s", response.Code, response.Body.String())
+	}
+	if bytes.Contains(response.Body.Bytes(), []byte(`C:\Users`)) {
+		t.Fatalf("error response leaked rejected executable path: %s", response.Body.String())
 	}
 }
 

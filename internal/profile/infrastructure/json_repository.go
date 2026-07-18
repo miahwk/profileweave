@@ -14,7 +14,7 @@ import (
 	"github.com/miahwk/profileweave/internal/profile/domain"
 )
 
-const schemaVersion = 2
+const schemaVersion = 3
 
 type diskTrashEntry struct {
 	Profile          domain.Profile `json:"profile"`
@@ -45,8 +45,14 @@ func NewJSONRepository(dataDir string) (*JSONRepository, error) {
 		return nil, fmt.Errorf("create data directory: %w", err)
 	}
 	repo := &JSONRepository{path: filepath.Join(abs, "profiles.json")}
-	if _, err := repo.read(); err != nil {
+	data, migrated, err := repo.readWithMigrationState()
+	if err != nil {
 		return nil, err
+	}
+	if migrated {
+		if err := repo.write(data); err != nil {
+			return nil, fmt.Errorf("persist profile schema migration: %w", err)
+		}
 	}
 	return repo, nil
 }
@@ -107,22 +113,33 @@ func (r *JSONRepository) Save(_ context.Context, profile domain.Profile, expecte
 }
 
 func (r *JSONRepository) read() (diskData, error) {
+	data, _, err := r.readWithMigrationState()
+	return data, err
+}
+
+func (r *JSONRepository) readWithMigrationState() (diskData, bool, error) {
 	raw, err := os.ReadFile(r.path)
 	if errors.Is(err, os.ErrNotExist) {
-		return emptyDiskData(), nil
+		return emptyDiskData(), false, nil
 	}
 	if err != nil {
-		return diskData{}, fmt.Errorf("read profiles: %w", err)
+		return diskData{}, false, fmt.Errorf("read profiles: %w", err)
 	}
 	var data diskData
 	if err := json.Unmarshal(raw, &data); err != nil {
-		return diskData{}, fmt.Errorf("decode profiles: %w", err)
+		return diskData{}, false, fmt.Errorf("decode profiles: %w", err)
 	}
-	if data.SchemaVersion == 1 {
-		data.SchemaVersion = schemaVersion
+	originalSchemaVersion := data.SchemaVersion
+	switch data.SchemaVersion {
+	case 1:
 		data.Trash = []diskTrashEntry{}
-	} else if data.SchemaVersion != schemaVersion {
-		return diskData{}, fmt.Errorf("unsupported profile schema version %d", data.SchemaVersion)
+		fallthrough
+	case 2:
+		disableLegacyCustomBrowsers(&data)
+		data.SchemaVersion = schemaVersion
+	case schemaVersion:
+	default:
+		return diskData{}, false, fmt.Errorf("unsupported profile schema version %d", data.SchemaVersion)
 	}
 	if data.Profiles == nil {
 		data.Profiles = []domain.Profile{}
@@ -130,7 +147,20 @@ func (r *JSONRepository) read() (diskData, error) {
 	if data.Trash == nil {
 		data.Trash = []diskTrashEntry{}
 	}
-	return data, nil
+	return data, originalSchemaVersion != schemaVersion, nil
+}
+
+func disableLegacyCustomBrowsers(data *diskData) {
+	for i := range data.Profiles {
+		if data.Profiles[i].Browser.Kind == "custom" {
+			data.Profiles[i].Browser.Kind = "custom-disabled"
+		}
+	}
+	for i := range data.Trash {
+		if data.Trash[i].Profile.Browser.Kind == "custom" {
+			data.Trash[i].Profile.Browser.Kind = "custom-disabled"
+		}
+	}
 }
 
 func emptyDiskData() diskData {

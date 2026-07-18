@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -46,5 +47,8 @@ func TestCapabilitiesUseProviderMetadata(t *testing.T) {
 	}
 	if payload.Features[1].Status != domain.CapabilityUnsupported {
 		t.Fatalf("unexpected capability status %#v", payload.Features[1])
+	}
+	if bytes.Contains(response.Body.Bytes(), []byte(`"path"`)) || bytes.Contains(response.Body.Bytes(), []byte(`C:/Chrome`)) {
+		t.Fatalf("capabilities exposed a browser install path: %s", response.Body.String())
 	}
 }

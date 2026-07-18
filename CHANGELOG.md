@@ -19,8 +19,7 @@ published yet.
   browser process-tree shutdown on Windows, Linux, and macOS.
 - Local profile creation, update, duplication, validation, launch, stop, and
   session listing.
-- Browser discovery and custom executable selection for Chromium-family
-  browsers.
+- Browser discovery for locally installed Chromium-family browsers.
 - Separate browser user-data directories and atomic JSON metadata storage.
 - Fingerprint configuration coherence diagnostics and applied-support status.
 - Loopback Go HTTP API and Vue 3 management console.
@@ -48,6 +47,9 @@ published yet.
 - Build metadata is exposed consistently through `--version` and `/health`.
 - The capability endpoint now derives feature status from the active runtime
   provider instead of a second hard-coded capability table.
+- Direct browser executable paths are disabled in the initial release; legacy
+  selections migrate to a non-runnable state until an installed browser is
+  selected, closing a path-to-process execution boundary.
 
 ### Security
 

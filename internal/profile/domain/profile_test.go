@@ -44,7 +44,7 @@ func TestProfileRejectsUnsafeBoundaries(t *testing.T) {
 		{"unsafe URL", func(in *Input) { in.StartURL = "file:///etc/passwd" }},
 		{"URL credentials", func(in *Input) { in.StartURL = "https://user:pass@example.com" }},
 		{"unknown browser", func(in *Input) { in.Browser.Kind = "shell" }},
-		{"custom path absent", func(in *Input) { in.Browser.Kind = "custom" }},
+		{"custom browser disabled", func(in *Input) { in.Browser.Kind = "custom" }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

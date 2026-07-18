@@ -57,10 +57,6 @@ func (r *ProcessRuntime) Discover(ctx context.Context) ([]domain.BrowserDescript
 	return r.resolver.Discover(ctx)
 }
 
-func (r *ProcessRuntime) ValidateExecutable(path string) error {
-	return r.resolver.ValidateExecutable(path)
-}
-
 func (r *ProcessRuntime) EnsureProfileData(profileID string) (bool, error) {
 	profileDir, err := r.profileDataPath(profileID)
 	if err != nil {
@@ -138,7 +134,7 @@ func (r *ProcessRuntime) Launch(ctx context.Context, spec domain.LaunchSpec) (do
 	if _, exists := r.active[spec.ProfileID]; exists {
 		return domain.Process{}, errors.New("profile process is already active")
 	}
-	executable, err := r.resolver.Resolve(ctx, spec.BrowserKind, spec.CustomPath)
+	executable, err := r.resolver.Resolve(ctx, spec.BrowserKind)
 	if err != nil {
 		return domain.Process{}, err
 	}

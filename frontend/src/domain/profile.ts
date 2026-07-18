@@ -27,7 +27,6 @@ export interface ProxyConfig {
 
 export interface BrowserSelection {
   kind: string
-  customPath?: string
 }
 
 export interface ProfileDraft {
@@ -77,7 +76,6 @@ export interface ConsistencyReport {
 export interface BrowserCapability {
   id: string
   name: string
-  path?: string
   available: boolean
 }
 

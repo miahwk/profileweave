@@ -24,8 +24,9 @@ const languagesText = computed({
   get: () => model.value.fingerprint.languages.join(', '),
   set: (value: string) => { model.value.fingerprint.languages = value.split(',').map((item) => item.trim()).filter(Boolean) },
 })
-const selectedBrowserMissing = computed(() => model.value.browser.kind !== 'auto' && model.value.browser.kind !== 'custom'
+const selectedBrowserMissing = computed(() => model.value.browser.kind !== 'auto'
   && !props.browsers.some((browser) => browser.id === model.value.browser.kind && browser.available))
+const legacyBrowserDisabled = computed(() => model.value.browser.kind === 'custom-disabled')
 const selectedTemplate = computed(() => desktopTemplates.find((template) => template.id === selectedTemplateID.value))
 
 function useSelectedTemplate() {
@@ -71,11 +72,9 @@ function useSelfCheckStartURL() {
                 <select v-model="model.browser.kind">
                   <option value="auto">自动选择已发现的浏览器</option>
                   <option v-for="browser in browsers" :key="browser.id" :value="browser.id" :disabled="!browser.available">{{ browser.name }}{{ browser.available ? '' : '（未找到）' }}</option>
-                  <option value="custom">自定义可执行文件</option>
                 </select>
-                <small v-if="selectedBrowserMissing" class="field-error">当前选择不可用，请改用已发现的浏览器。</small>
+                <small v-if="selectedBrowserMissing" class="field-error">{{ legacyBrowserDisabled ? '旧的自定义浏览器路径已因安全迁移停用，请选择已发现的浏览器。' : '当前选择不可用，请改用已发现的浏览器。' }}</small>
               </label>
-              <label v-if="model.browser.kind === 'custom'" class="field field--wide"><span>浏览器可执行文件路径 <b>*</b></span><input v-model.trim="model.browser.customPath" required placeholder="C:\Program Files\Chromium\chrome.exe" /><small>只填写文件路径，不要附加命令行参数。</small></label>
             </div>
           </section>
 

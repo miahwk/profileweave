@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"github.com/miahwk/profileweave/internal/browser/domain"
 )
@@ -20,7 +19,7 @@ func (Resolver) Discover(_ context.Context) ([]domain.BrowserDescriptor, error) 
 		if candidates[i].Path == "" {
 			continue
 		}
-		if err := validateExecutable(candidates[i].Path); err == nil {
+		if err := validateDiscoveredExecutable(candidates[i].Path); err == nil {
 			candidates[i].Available = true
 		} else {
 			candidates[i].Path = ""
@@ -29,14 +28,9 @@ func (Resolver) Discover(_ context.Context) ([]domain.BrowserDescriptor, error) 
 	return candidates, nil
 }
 
-func (Resolver) ValidateExecutable(path string) error { return validateExecutable(path) }
-
-func (r Resolver) Resolve(ctx context.Context, kind, customPath string) (string, error) {
-	if kind == "custom" {
-		if err := r.ValidateExecutable(customPath); err != nil {
-			return "", err
-		}
-		return customPath, nil
+func (r Resolver) Resolve(ctx context.Context, kind string) (string, error) {
+	if kind == "custom" || kind == "custom-disabled" {
+		return "", errors.New("custom browser executables are disabled; choose a discovered browser")
 	}
 	browsers, err := r.Discover(ctx)
 	if err != nil {
@@ -53,14 +47,8 @@ func (r Resolver) Resolve(ctx context.Context, kind, customPath string) (string,
 	return "", fmt.Errorf("selected %s browser is not available", kind)
 }
 
-func validateExecutable(path string) error {
-	if strings.TrimSpace(path) == "" || strings.ContainsAny(path, "\x00\r\n") {
-		return errors.New("browser path is invalid")
-	}
-	if !filepath.IsAbs(path) {
-		return errors.New("browser path must be absolute")
-	}
-	info, err := os.Stat(filepath.Clean(path))
+func validateDiscoveredExecutable(path string) error {
+	info, err := os.Stat(path)
 	if err != nil {
 		return errors.New("browser executable does not exist")
 	}

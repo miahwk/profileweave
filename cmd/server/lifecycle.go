@@ -40,7 +40,7 @@ func serveApplication(dataDir, managementURL string, shouldOpen bool) error {
 		return err
 	}
 	browsers := browserapp.NewService(repository, runtime)
-	profiles := profileapp.NewService(repository, browsers, runtime, runtime)
+	profiles := profileapp.NewService(repository, browsers, runtime)
 	stopRequests := make(chan struct{}, 1)
 	requestStop := func() {
 		select {

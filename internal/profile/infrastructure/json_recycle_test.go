@@ -1,6 +1,7 @@
 package infrastructure
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -54,7 +55,7 @@ func TestJSONRepositoryRecycleBinRoundTrip(t *testing.T) {
 	}
 }
 
-func TestJSONRepositoryMigratesSchemaV1OnWrite(t *testing.T) {
+func TestJSONRepositoryMigratesSchemaV1AtomicallyOnOpen(t *testing.T) {
 	dir := t.TempDir()
 	legacy := map[string]any{
 		"schemaVersion": 1,
@@ -72,9 +73,7 @@ func TestJSONRepositoryMigratesSchemaV1OnWrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.MoveToTrash(context.Background(), "p_11111111111111111111111111111111", "", time.Now()); err != nil {
-		t.Fatal(err)
-	}
+	_ = repo
 	raw, err = os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -82,5 +81,54 @@ func TestJSONRepositoryMigratesSchemaV1OnWrite(t *testing.T) {
 	var persisted diskData
 	if err := json.Unmarshal(raw, &persisted); err != nil || persisted.SchemaVersion != schemaVersion {
 		t.Fatalf("schema=%d err=%v", persisted.SchemaVersion, err)
+	}
+}
+
+func TestJSONRepositoryDisablesLegacyCustomBrowserPath(t *testing.T) {
+	dir := t.TempDir()
+	profile := repositoryProfile("p_22222222222222222222222222222222")
+	encodedProfile, err := json.Marshal(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var legacyProfile map[string]any
+	if err := json.Unmarshal(encodedProfile, &legacyProfile); err != nil {
+		t.Fatal(err)
+	}
+	legacyProfile["browser"] = map[string]any{"kind": "custom", "customPath": `C:\Portable\chrome.exe`}
+	raw, err := json.Marshal(map[string]any{
+		"schemaVersion": 2,
+		"profiles":      []any{legacyProfile},
+		"trash":         []any{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "profiles.json")
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	repo, err := NewJSONRepository(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := repo.Get(context.Background(), profile.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Browser.Kind != "custom-disabled" {
+		t.Fatalf("legacy browser kind = %q, want custom-disabled", got.Browser.Kind)
+	}
+	persisted, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(persisted, []byte("customPath")) {
+		t.Fatal("migration retained the legacy executable path")
+	}
+	var data diskData
+	if err := json.Unmarshal(persisted, &data); err != nil || data.SchemaVersion != schemaVersion {
+		t.Fatalf("schema=%d err=%v", data.SchemaVersion, err)
 	}
 }
